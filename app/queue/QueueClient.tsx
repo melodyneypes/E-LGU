@@ -778,7 +778,7 @@ export default function QueueClient({
                     <div className="animate-[marquee_45s_linear_infinite] whitespace-nowrap flex items-center gap-16 absolute text-[9px] md:text-[10px] font-black uppercase tracking-widest italic text-slate-400">
                         <span>• Please prepare your valid ID and documents before approaching the counter</span>
                         <span>• Senior Citizens, PWDs, and Pregnant women can claim Priority Lane service</span>
-                        <span>• EMapandan Smart Governance Portal - Empowering residents with fast digital transactions</span>
+                        <span>• E-LGU Smart Governance Portal - Empowering residents with fast digital transactions</span>
                         <span>• Thank you for your patience and cooperation</span>
                     </div>
                 </div>

@@ -1463,7 +1463,7 @@ export default function OccupancyPermitPage() {
                   <Book className="w-3 h-3" /> Citizen's Charter
                 </span>
                 <h4 className="text-sm font-black tracking-widest text-slate-700 dark:text-white italic">
-                  Based on Mapandan Occupancy Permit Process
+                  Based on Official E-LGU Occupancy Permit Process
                 </h4>
                 <div className="text-xs text-primary dark:text-primary/90 font-bold bg-primary/[0.02] border border-primary/10 p-4 rounded-xl mt-2 italic font-sans leading-relaxed">
                   &quot;Compliant with PD 1096 (National Building Code), RA 11032 (EODB Act), and RA 10173 (Data Privacy Act). Ensure all requirements are duly signed and notarized where applicable.&quot;
@@ -1722,7 +1722,7 @@ export default function OccupancyPermitPage() {
                             value={formData.contactNumber ?? (displayResident?.contactNumber || "")}
                             onChange={e => setFormData({ ...formData, contactNumber: e.target.value })}
                             disabled={!isEditable}
-                            placeholder="e.g. 09123456789"
+                            placeholder="09XX-XXX-XXXX"
                           />
                           {showValidationErrors && !formData.contactNumber && (
                             <p className="text-[10px] text-red-500 font-medium mt-0.5">Contact number is required</p>
@@ -1735,7 +1735,7 @@ export default function OccupancyPermitPage() {
                         <div className="md:col-span-2">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Complete Address</p>
                           <p className="font-bold text-slate-800 dark:text-slate-200 mt-1 uppercase text-sm">
-                            {displayResident?.houseNumber ? `#${displayResident.houseNumber} ${displayResident.street || ""}, Brgy. ${displayResident.barangay || ""}, Mapandan, Pangasinan` : "N/A"}
+                            {displayResident?.houseNumber ? `#${displayResident.houseNumber} ${displayResident.street || ""}, Brgy. ${displayResident.barangay || ""}, Municipality of E-LGU` : "N/A"}
                           </p>
                         </div>
                       </div>
@@ -2673,7 +2673,7 @@ export default function OccupancyPermitPage() {
                 <div className="space-y-1">
                   <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">Data Privacy and Terms Agreement</p>
                   <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                    I officially accept the EMapandan Data Privacy Agreement & Terms. I declare under penalty of perjury that all submitted details are 100% legal and genuine. Click to review agreement.
+                    I officially accept the E-LGU Data Privacy Agreement & Terms. I declare under penalty of perjury that all submitted details are 100% legal and genuine. Click to review agreement.
                   </p>
                 </div>
               </div>
@@ -3367,7 +3367,7 @@ You cancelled this occupancy permit application. You can still view your details
                             </div>
 
                             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                              Proceed to the <strong>Municipal Treasury Office</strong> at Mapandan Town Hall. Present your queue ticket and QR code to the Front Desk, and settle your payment in cash at the Treasury counter.
+                              Proceed to the <strong>Municipal Treasury Office</strong> at the Municipal Town Hall. Present your queue ticket and QR code to the Front Desk, and settle your payment in cash at the Treasury counter.
                             </p>
 
                             {/* Active Queue Ticket Box if generated */}
@@ -3804,7 +3804,7 @@ You cancelled this occupancy permit application. You can still view your details
                 Municipal Treasury Queue Ticket
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-medium">
-                Present this QR code to the Front Desk staff or Kiosk scanner upon arriving at Mapandan Town Hall.
+                Present this QR code to the Front Desk staff or Kiosk scanner upon arriving at the Municipal Town Hall.
               </DialogDescription>
             </DialogHeader>
 

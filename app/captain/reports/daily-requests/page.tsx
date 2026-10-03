@@ -27,7 +27,7 @@ export default async function CaptainDailyRequestsReportPage(props: {
         redirect("/auth/login");
     }
 
-    const managedBarangay = user?.managedBarangay || "Apaya";
+    const managedBarangay = user?.managedBarangay || "{{BARANGAY_NAME}}";
     const params = await props.searchParams;
 
     // Parse filters with defaults

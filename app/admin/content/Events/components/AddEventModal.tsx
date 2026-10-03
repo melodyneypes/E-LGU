@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useEvents } from "../providers/EventsProvider";
@@ -98,9 +100,7 @@ export function AddEventModal() {
             // Check if it's not part of a zoom level or something else
             const latVal = parseFloat(genericMatch[1]);
             const lngVal = parseFloat(genericMatch[2]);
-            // Mapandan is around 16, 120. Reasonable bounds for Mapandan/Pangasinan:
-            // Lat: 15-17, Lng: 119-121
-            if (latVal > 14 && latVal < 18 && lngVal > 118 && lngVal < 122) {
+            if (latVal >= -90 && latVal <= 90 && lngVal >= -180 && lngVal <= 180) {
                 return { lat: genericMatch[1], lng: genericMatch[2] };
             }
         }
@@ -181,7 +181,7 @@ export function AddEventModal() {
                                     {editingData ? "Edit Event Details" : "Create New Event"}
                                 </DialogTitle>
                                 <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium">
-                                    Share the upcoming happenings in Mapandan with the community.
+                                    Share the upcoming happenings in {sanitizeLguText("{{LGU_NAME}}")} with the community.
                                 </DialogDescription>
                             </div>
                         </div>
@@ -314,7 +314,7 @@ export function AddEventModal() {
                                             <Input
                                                 name="contactNumber"
                                                 defaultValue={editingData?.contactNumber || ""}
-                                                placeholder="e.g. 0912-345-6789"
+                                                placeholder="e.g. 09XX-XXX-XXXX"
                                                 className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040]"
                                             />
                                         </div>
@@ -384,7 +384,7 @@ export function AddEventModal() {
                                             required
                                             value={venueName}
                                             onChange={(e) => setVenueName(e.target.value)}
-                                            placeholder="e.g. Mapandan Municipal Plaza"
+                                            placeholder="e.g. {{LGU_NAME}} Municipal Plaza"
                                             className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040]"
                                         />
                                     </div>
@@ -396,7 +396,7 @@ export function AddEventModal() {
                                             required
                                             value={address}
                                             onChange={(e) => setAddress(e.target.value)}
-                                            placeholder="e.g. Poblacion, Mapandan"
+                                            placeholder="e.g. {{BARANGAY_NAME}}, {{LGU_NAME}}"
                                             className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040]"
                                         />
                                     </div>
@@ -443,7 +443,7 @@ export function AddEventModal() {
                                                 type="button"
                                                 variant="outline"
                                                 size="icon"
-                                                onClick={() => window.open('https://www.google.com/maps/@16.0287,120.4022,15z', '_blank')}
+                                                onClick={() => window.open('https://www.google.com/maps', '_blank')}
                                                 className="h-12 w-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] shrink-0"
                                                 style={{ color: themeColor }}
                                                 title="Open Google Maps to find location"

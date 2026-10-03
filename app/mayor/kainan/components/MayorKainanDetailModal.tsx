@@ -60,7 +60,7 @@ export function MayorKainanDetailModal({ item, onClose }: MayorKainanDetailModal
     // Construct map query with pinned coordinates or fallback establishment address
     const mapQuery = item.latitude && item.longitude
         ? `${item.latitude},${item.longitude}`
-        : `${item.name}, ${item.address || ''}, Mapandan, Pangasinan`;
+        : `${item.name}, ${item.address || ''}, Municipality of E-LGU`;
     const mapIframeUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
     return (
@@ -128,9 +128,9 @@ export function MayorKainanDetailModal({ item, onClose }: MayorKainanDetailModal
                                 <MapPin size={14} className="text-emerald-500" /> Location
                             </div>
                             <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                {item.address || "Mapandan, Pangasinan"}
+                                {item.address || "Municipality of E-LGU"}
                             </p>
-                            <p className="text-xs text-slate-400 font-medium">Barangay {item.barangay || "Mapandan"}</p>
+                            <p className="text-xs text-slate-400 font-medium">Barangay {item.barangay || "E-LGU"}</p>
                         </div>
 
                         {/* Opening Hours */}

@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import { AccommodationProvider, Accommodation } from "./providers/AccommodationProvider";
 import {
@@ -48,7 +50,7 @@ export function AccommodationPage({
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Tuluyan Management</h1>
-                        <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Manage resorts, hotels, and homestays in Mapandan.</p>
+                        <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Manage resorts, hotels, and homestays in {sanitizeLguText("{{LGU_NAME}}")}.</p>
                     </div>
                 </div>
 

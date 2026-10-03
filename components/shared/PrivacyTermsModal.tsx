@@ -172,7 +172,7 @@ export default function PrivacyTermsModal({ isOpen, onClose, onAccept, onDecline
                                         1. Scope of Personal Data Collected
                                     </h4>
                                     <p>
-                                        In compliance with the Data Privacy Act of 2012 (R.A. 10173) of the Republic of the Philippines, the Municipal Government of Mapandan, Pangasinan collects, processes, and protects personal and corporate data required for online community tax certificates (Cedula) and business permit filings.
+                                        In compliance with the Data Privacy Act of 2012 (R.A. 10173) of the Republic of the Philippines, the Municipal Government of E-LGU collects, processes, and protects personal and corporate data required for online community tax certificates (Cedula) and business permit filings.
                                     </p>
                                     <p>
                                         This includes: your full name, birth date, contact number, address, occupation, tax details, corporate registration copies, government-issued IDs, and annual income or gross capitalization declarations.
@@ -251,7 +251,7 @@ export default function PrivacyTermsModal({ isOpen, onClose, onAccept, onDecline
                                         3. Three-Strike Account Suspension Rule
                                     </h4>
                                     <p className="font-bold text-red-500 dark:text-red-400">
-                                        IMPORTANT: In order to protect municipal resources, EMapandan LGU enforces a strict Three-Strike Rejection Policy. If your applications are rejected 3 times in the same Category of the request due to fraudulent data, false values, or intentional document violations, your online portal access will be permanently suspended, requiring you to apply in-person directly at the Mapandan Municipal Hall.
+                                        IMPORTANT: In order to protect municipal resources, E-LGU enforces a strict Three-Strike Rejection Policy. If your applications are rejected 3 times in the same Category of the request due to fraudulent data, false values, or intentional document violations, your online portal access will be permanently suspended, requiring you to apply in-person directly at the Municipal Hall.
                                     </p>
 
                                     <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-[10px] sm:text-xs block pt-1 sm:pt-2">

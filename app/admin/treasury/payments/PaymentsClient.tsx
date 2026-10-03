@@ -139,13 +139,13 @@ export default function PaymentsClient({
     const exportDropdownRef = useRef<HTMLDivElement>(null);
     const [treasurerName, setTreasurerName] = useState(() => {
         if (typeof window !== "undefined") {
-            return localStorage.getItem("emapandan_treasurer_name") || activeUserName;
+            return localStorage.getItem("E-LGU_treasurer_name") || activeUserName;
         }
         return activeUserName;
     });
     const [treasurerTitle, setTreasurerTitle] = useState(() => {
         if (typeof window !== "undefined") {
-            return localStorage.getItem("emapandan_treasurer_title") || "Acting Municipal Treasurer";
+            return localStorage.getItem("E-LGU_treasurer_title") || "Acting Municipal Treasurer";
         }
         return "Acting Municipal Treasurer";
     });
@@ -543,7 +543,7 @@ export default function PaymentsClient({
                                     </p>
                                 </div>
                                 <span className="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                                    LGU MAPANDAN
+                                    MUNICIPALITY OF E-LGU
                                 </span>
                             </div>
 
@@ -686,7 +686,7 @@ export default function PaymentsClient({
                                                     onClick={() => {
                                                         setTreasurerName(activeUserName);
                                                         if (typeof window !== "undefined") {
-                                                            localStorage.setItem("emapandan_treasurer_name", activeUserName);
+                                                            localStorage.setItem("E-LGU_treasurer_name", activeUserName);
                                                         }
                                                     }}
                                                     className="text-[9px] text-blue-500 hover:underline cursor-pointer"
@@ -704,7 +704,7 @@ export default function PaymentsClient({
                                                 const val = e.target.value;
                                                 setTreasurerName(val);
                                                 if (typeof window !== "undefined") {
-                                                    localStorage.setItem("emapandan_treasurer_name", val);
+                                                    localStorage.setItem("E-LGU_treasurer_name", val);
                                                 }
                                             }}
                                             className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"
@@ -722,7 +722,7 @@ export default function PaymentsClient({
                                                 const val = e.target.value;
                                                 setTreasurerTitle(val);
                                                 if (typeof window !== "undefined") {
-                                                    localStorage.setItem("emapandan_treasurer_title", val);
+                                                    localStorage.setItem("E-LGU_treasurer_title", val);
                                                 }
                                             }}
                                             className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"

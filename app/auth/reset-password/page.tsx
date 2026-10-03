@@ -8,8 +8,8 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-    title: "Reset Password | EMapandan",
-    description: "Set a new password for your EMapandan portal account.",
+    title: "Reset Password | E-LGU",
+    description: "Set a new password for your E-LGU portal account.",
 };
 
 interface ResetPasswordPageProps {

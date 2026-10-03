@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { lguMapCenter } from "@/lib/utils/lgu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     Breadcrumb,
@@ -326,9 +327,9 @@ export default function AppointmentDetailsPage() {
         request.type?.code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
 
     const isRHU = request.type?.category === "Rural Health Unit" || request.type?.category === "RHU" || request.type?.code?.startsWith("RHU_");
-    const healthCenterName = additionalData?.healthCenterName || "Mapandan Main Health Center (Poblacion)";
-    const healthCenterLat = additionalData?.latitude || (healthCenterName.toLowerCase().includes("lalas") ? 16.0235 : 16.0264);
-    const healthCenterLng = additionalData?.longitude || (healthCenterName.toLowerCase().includes("lalas") ? 120.4475 : 120.4537);
+    const healthCenterName = additionalData?.healthCenterName || "Main Health Center";
+    const healthCenterLat = additionalData?.latitude ?? lguMapCenter[0];
+    const healthCenterLng = additionalData?.longitude ?? lguMapCenter[1];
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${healthCenterLat},${healthCenterLng}`;
 
     return (
@@ -378,7 +379,7 @@ export default function AppointmentDetailsPage() {
                                     <QrCode className="w-5 h-5 text-white" />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <p className="text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase leading-none">Mapandan Municipal Hall</p>
+                                    <p className="text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase leading-none">Municipal Hall</p>
                                     <h4 className="text-[10px] font-black tracking-widest text-slate-300 uppercase leading-none">
                                         MUNICIPALITY PORTAL
                                     </h4>
@@ -535,7 +536,7 @@ export default function AppointmentDetailsPage() {
                                                         : request.status === "UNPAID"
                                                             ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
                                                             : (request.status === "RELEASED" || request.status === "DELIVERED")
-                                                                ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
+                                                                ? "Transaction completed! Thank you for trusting the Local Government Unit of E-LGU. Your document has been successfully processed and released."
                                                                 : "Your booking status has changed. Please read any evaluation comments below."
                                         }
                                     </p>
@@ -598,7 +599,7 @@ export default function AppointmentDetailsPage() {
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className="font-black text-slate-900 dark:text-white uppercase text-sm truncate">{healthCenterName}</p>
-                                                            <p className="text-[10px] text-slate-400 font-medium italic">Mapandan, Pangasinan</p>
+                                                            <p className="text-[10px] text-slate-400 font-medium italic">Municipality of E-LGU</p>
                                                         </div>
                                                     </div>
 
@@ -665,7 +666,7 @@ export default function AppointmentDetailsPage() {
                                         <div className="space-y-1 col-span-1 sm:col-span-2">
                                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Project Site Address</span>
                                             <p className="font-black text-slate-850 dark:text-white">
-                                                {additionalData.projectAddress || `${additionalData.barangay || residentData.barangay}, Mapandan, Pangasinan`}
+                                                {additionalData.projectAddress || `${additionalData.barangay || residentData.barangay}, Municipality of E-LGU`}
                                             </p>
                                         </div>
                                     </div>

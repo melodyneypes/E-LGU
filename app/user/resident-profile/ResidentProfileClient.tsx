@@ -20,7 +20,7 @@ interface ResidentProfileClientProps {
     themeColor?: string;
 }
 
-export default function ResidentProfileClient({ resident, themeColor = "#2563eb" }: ResidentProfileClientProps) {
+export default function ResidentProfileClient({ resident, themeColor = "#0038a8" }: ResidentProfileClientProps) {
     const [activeTab, setActiveTab] = useState<"personal" | "address" | "socio" | "gov" | "system">("personal");
     const [zoomedImage, setZoomedImage] = useState<{ src: string; label: string } | null>(null);
     const [rotation, setRotation] = useState(0);
@@ -273,8 +273,8 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
             res.purok ? `Purok ${res.purok}` : "",
             res.sitio ? `(${res.sitio})` : "",
             res.barangay ? `Brgy. ${res.barangay}` : "",
-            res.municipality || "Mapandan",
-            res.province || "Pangasinan"
+            res.municipality || "Municipality of E-LGU",
+            res.province || "{{PROVINCE_NAME}}"
         ];
         return parts.filter(Boolean).join(", ");
     };
@@ -719,7 +719,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
                         OFFICIAL RESIDENT PROFILE SHEET
                     </h1>
                     <p style={{ margin: "5px 0 0 0", fontSize: "12px", textTransform: "uppercase", fontWeight: "bold", color: "#666" }}>
-                        MUNICIPALITY OF MAPANDAN, PANGASINAN
+                        MUNICIPALITY OF E-LGU
                     </p>
                 </div>
 
@@ -783,7 +783,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
 
                 <div style={{ marginTop: "50px", borderTop: "1px solid #ccc", paddingTop: "10px", display: "flex", justifyContent: "space-between" }}>
                     <div style={{ fontSize: "10px", color: "#666" }}>
-                        Printed on {new Date().toLocaleString()} from E-Mapandan Resident Portal.
+                        Printed on {new Date().toLocaleString()} from E-LGU Resident Portal.
                     </div>
                     <div style={{ fontSize: "10px", textAlign: "right", color: "#666" }}>
                         Verification Hash: {resident.id}
@@ -1039,7 +1039,7 @@ const Field = ({ label, value }: { label: string; value: any }) => {
 const Section = ({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) => (
     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-3xl p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
-            <Icon className="w-4 h-4 text-slate-400" style={{ color: "var(--primary-theme, #2563eb)" }} />
+            <Icon className="w-4 h-4 text-slate-400" style={{ color: "var(--primary-theme, #0038a8)" }} />
             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">{title}</h4>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">

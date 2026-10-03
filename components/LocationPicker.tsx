@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap, GeoJSON } from "
 import { toast } from "sonner";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import lguConfig from "@/config/lgu.config.json";
 
 // --- BEST PRACTICE: LEAFLET ICON FIX ---
 // Standard Leaflet markers sometimes break in Next.js builds.
@@ -23,9 +24,12 @@ interface LocationPickerProps {
     onChange: (lat: number, lng: number) => void;
 }
 
-const DEFAULT_CENTER: [number, number] = [16.0250, 120.4450]; // Mapandan Town Center, Pangasinan
+const DEFAULT_CENTER: [number, number] = [
+    lguConfig.map.latitude ?? 0,
+    lguConfig.map.longitude ?? 0,
+];
 
-// Point-in-polygon check for Mapandan boundary coordinates [lng, lat]
+// Point-in-polygon check for municipal boundary coordinates [lng, lat]
 function isPointInPolygon(pointLat: number, pointLng: number, vs: number[][]) {
     const x = pointLng, y = pointLat;
     let inside = false;
@@ -42,12 +46,12 @@ function isPointInPolygon(pointLat: number, pointLng: number, vs: number[][]) {
 function LocationMarker({ lat, lng, onChange, borderPolygon }: LocationPickerProps & { borderPolygon: number[][] | null }) {
     const map = useMap();
 
-    // Auto-snap initial pin to Poblacion Mapandan if current pin is outside boundary
+    // Auto-snap the pin to the configured map center if it is outside the boundary.
     useEffect(() => {
         if (lat && lng && borderPolygon && borderPolygon.length > 0) {
             const inside = isPointInPolygon(lat, lng, borderPolygon);
             if (!inside) {
-                onChange(16.0250, 120.4450);
+                onChange(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
             }
         }
     }, [lat, lng, borderPolygon, onChange]);
@@ -67,7 +71,7 @@ function LocationMarker({ lat, lng, onChange, borderPolygon }: LocationPickerPro
         if (borderPolygon && borderPolygon.length > 0) {
             const inside = isPointInPolygon(targetLat, targetLng, borderPolygon);
             if (!inside) {
-                toast.error("Location outside Mapandan! Please pin a location inside Mapandan municipal boundary only.");
+                toast.error("Location outside municipal boundary! Please pin a location inside the municipal boundary only.");
                 return;
             }
         }
@@ -103,43 +107,17 @@ export default function LocationPicker({ lat, lng, onChange }: LocationPickerPro
     useEffect(() => {
         const fetchBoundary = async () => {
             try {
-                const res = await fetch(
-                    "https://nominatim.openstreetmap.org/search?q=Mapandan,Pangasinan,Philippines&polygon_geojson=1&format=json"
-                );
+                const res = await fetch(lguConfig.map.boundaryFile);
                 const data = await res.json();
-                if (data && data.length > 0 && data[0].geojson) {
-                    const geojson = data[0].geojson;
-                    const featureCollection = {
-                        type: "FeatureCollection",
-                        features: [
-                            {
-                                type: "Feature",
-                                properties: { name: "Mapandan Municipality" },
-                                geometry: geojson
-                            }
-                        ]
-                    };
-                    setGeoJsonData(featureCollection);
-                    const ring = geojson.type === "Polygon" ? geojson.coordinates[0] : geojson.coordinates[0]?.[0];
-                    if (Array.isArray(ring)) {
-                        setBorderPolygon(ring);
+                if (data && data.features) {
+                    setGeoJsonData(data);
+                    const coords = data?.features?.[0]?.geometry?.coordinates?.[0];
+                    if (Array.isArray(coords)) {
+                        setBorderPolygon(coords);
                     }
-                    return;
                 }
             } catch (err) {
-                console.warn("Failed to fetch official Nominatim boundary, using fallback local GeoJSON:", err);
-            }
-
-            try {
-                const res = await fetch("/mapandan-border.json");
-                const data = await res.json();
-                setGeoJsonData(data);
-                const coords = data?.features?.[0]?.geometry?.coordinates?.[0];
-                if (Array.isArray(coords)) {
-                    setBorderPolygon(coords);
-                }
-            } catch (err) {
-                console.error("Failed to load local mapandan-border.json:", err);
+                console.warn("Failed to load local municipal border GeoJSON:", err);
             }
         };
 
@@ -163,7 +141,7 @@ export default function LocationPicker({ lat, lng, onChange }: LocationPickerPro
                     maxZoom={20}
                 />
 
-                {/* Broken / Dashed Line Marking Mapandan Municipal Boundary */}
+                {/* Broken / Dashed Line Marking Municipal Boundary */}
                 {geoJsonData && (
                     <GeoJSON
                         data={geoJsonData}

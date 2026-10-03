@@ -1,22 +1,23 @@
-export const MAPANDAN_FACILITIES = [
+export const MUNICIPAL_FACILITIES = [
     "Main Rural Health Unit (RHU)",
-    "BHS Amanoaoac",
-    "BHS Apaya",
-    "BHS Aserda",
-    "BHS Baloling",
-    "BHS Coral",
-    "BHS Golden",
-    "BHS Jimenez",
-    "BHS Lambayan",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
     "BHS Licsi",
     "BHS Luan",
-    "BHS Nilombot",
-    "BHS Pias",
-    "BHS Poblacion",
-    "BHS Primicias",
-    "BHS Santa Maria",
-    "BHS Torres"
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}",
+    "BHS {{BARANGAY_NAME}}"
 ];
+export const LGU_FACILITIES = MUNICIPAL_FACILITIES;
 
 export const FACILITY_ROOMS: Record<string, string[]> = {
     "Main Rural Health Unit (RHU)": [

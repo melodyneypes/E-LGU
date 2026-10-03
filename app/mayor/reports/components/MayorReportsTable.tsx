@@ -265,7 +265,7 @@ export function MayorReportsTable({
                                     <TableCell className="py-4 px-6">
                                         <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
                                             <MapPin size={14} className="text-rose-500 shrink-0" />
-                                            <span>{report.barangay?.name || "Mapandan"}</span>
+                                            <span>{report.barangay?.name || "E-LGU"}</span>
                                         </div>
                                     </TableCell>
 

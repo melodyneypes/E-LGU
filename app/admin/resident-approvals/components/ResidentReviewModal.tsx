@@ -652,7 +652,7 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
                                 "Blurred or unreadable ID uploaded",
                                 "Name in application does not match ID",
                                 "Missing valid government-issued ID",
-                                "Address not within Municipality of Mapandan",
+                                "Address not within the Municipality",
                             ].map((preset) => (
                                 <button
                                     key={preset}

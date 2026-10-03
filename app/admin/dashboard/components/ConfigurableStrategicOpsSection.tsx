@@ -33,8 +33,8 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     staff_audit: { defaultCols: 4, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "emapandan_strategic_ops_grid_v2";
-const ORDER_STORAGE_KEY = "emapandan_strategic_ops_order_v1";
+const STORAGE_KEY = "E-LGU_strategic_ops_grid_v2";
+const ORDER_STORAGE_KEY = "E-LGU_strategic_ops_order_v1";
 
 export function ConfigurableStrategicOpsSection({
     themeColor,

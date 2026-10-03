@@ -9,7 +9,7 @@ import { getCenterAppointmentConfig } from "@/app/user/services/rural-health-uni
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export const metadata: Metadata = {
-    title: "RHU Appointment Settings | Mapandan Portal",
+    title: "RHU Appointment Settings | LGU Portal",
     description: "Official administrative configuration for Rural Health Unit (RHU) appointment slot limits and active schedule days.",
 };
 

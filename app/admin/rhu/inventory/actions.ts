@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
+import lguConfig from "@/config/lgu.config.json";
 
 export type InventoryCategory = "MEDICINE" | "MEDICAL_SUPPLY";
 
@@ -41,8 +42,8 @@ async function checkPharmacyAuth() {
 
     const isGlobalAdmin = role === "ADMIN" || 
         role === "RHU_ADMIN" || 
-        email === "rhu@mapandan.gov.ph" || 
-        email === "main.rhu@mapandan.gov.ph" ||
+        email === lguConfig.seedAccounts.rhuEmail.toLowerCase() ||
+        email === lguConfig.seedAccounts.mainRhuEmail.toLowerCase() ||
         department.includes("LGU");
 
     const isPharmacyUser = role === "RHU_PHARMACY" || 
@@ -827,7 +828,7 @@ export async function dispenseRHUMedicines(
                     batchNumber: batchNum || null,
                     balanceAfter: finalTotalQty,
                     personRemarks: remarks,
-                    facilityName: options?.facilityName || "RHU Mapandan",
+                    facilityName: options?.facilityName || "Main Rural Health Unit (RHU)",
                     healthCenterId: options?.healthCenterId || itemRecord.healthCenterId || null,
                     referenceNo: options?.referenceNo || `DISP-${Date.now().toString().slice(-6)}`
                 });
@@ -999,7 +1000,7 @@ export async function getRHUInventoryMovements(params?: {
                                 balanceAfter: initQty,
                                 personRemarks: `Municipal Purchase Order #2026-${String(i + 10).padStart(3, "0")}`,
                                 healthCenterId: b.healthCenterId || item.healthCenterId,
-                                facilityName: b.healthCenterName || item.healthCenterName || "RHU Mapandan",
+                                facilityName: b.healthCenterName || item.healthCenterName || "Main Rural Health Unit (RHU)",
                                 referenceNo: `PO-2026-${String(i + 10).padStart(3, "0")}`
                             });
 
@@ -1019,7 +1020,7 @@ export async function getRHUInventoryMovements(params?: {
                                     balanceAfter: b.quantity,
                                     personRemarks: `Prescription Dispense - RHU Central Clinic`,
                                     healthCenterId: b.healthCenterId || item.healthCenterId,
-                                    facilityName: b.healthCenterName || item.healthCenterName || "RHU Mapandan",
+                                    facilityName: b.healthCenterName || item.healthCenterName || "Main Rural Health Unit (RHU)",
                                     referenceNo: `RX-2026-${String(i + 10).padStart(3, "0")}`
                                 });
                             }
@@ -1038,7 +1039,7 @@ export async function getRHUInventoryMovements(params?: {
                             balanceAfter: item.quantity,
                             personRemarks: `Initial Warehouse Stock Intake`,
                             healthCenterId: item.healthCenterId,
-                            facilityName: item.healthCenterName || "RHU Mapandan",
+                            facilityName: item.healthCenterName || "Main Rural Health Unit (RHU)",
                             referenceNo: `INIT-${100 + i}`
                         });
                     }
@@ -1057,7 +1058,7 @@ export async function getRHUInventoryMovements(params?: {
                             balanceAfter: item.quantity,
                             personRemarks: `Prescription Dispense - RHU Central Clinic`,
                             healthCenterId: item.healthCenterId,
-                            facilityName: item.healthCenterName || "RHU Mapandan",
+                            facilityName: item.healthCenterName || "Main Rural Health Unit (RHU)",
                             referenceNo: `RX-2026-${200 + i}`
                         });
                     }
@@ -1127,7 +1128,7 @@ export async function getRHUInventoryMovements(params?: {
                 balanceAfter: Number(r.balanceAfter || 0),
                 personRemarks: r.personRemarks,
                 healthCenterId: r.healthCenterId,
-                facilityName: r.facilityName || "RHU Mapandan",
+                facilityName: r.facilityName || "Main Rural Health Unit (RHU)",
                 referenceNo: r.referenceNo,
                 createdAt: r.createdAt
             }))
@@ -1137,4 +1138,3 @@ export async function getRHUInventoryMovements(params?: {
         return { success: false, data: [], error: error?.message || "Failed to fetch movements" };
     }
 }
-

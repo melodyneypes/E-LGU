@@ -87,7 +87,7 @@ export function AddLogisticsModal({ isOpen, onClose, onSuccess }: AddLogisticsMo
                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Barangay Name</Label>
                         <Input
                             required
-                            placeholder="e.g. Poblacion"
+                            placeholder="e.g. {{BARANGAY_NAME}}"
                             className="h-12 bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
                             value={name}
                             onChange={(e) => setName(e.target.value)}

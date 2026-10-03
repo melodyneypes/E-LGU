@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { getArchivedOccupancyPermits, createArchivedOccupancyPermit, updateArchivedOccupancyPermit } from "../actions";
@@ -57,23 +58,7 @@ import { toast } from "sonner";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { compressDocumentScan } from "@/lib/image-compression";
 
-const MAPANDAN_BARANGAYS = [
-    "Amanoaoac",
-    "Apaya",
-    "Aserda",
-    "Baloling",
-    "Bogaoan",
-    "Bolo",
-    "Coliling",
-    "Golden",
-    "Jimenez",
-    "Nilombot",
-    "Poblacion",
-    "Primicias",
-    "Santa Maria",
-    "Torres",
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 const OCCUPANCY_GROUPS = [
     { value: "GROUP A", label: "Group A - Residential (Dwellings)" },
     { value: "GROUP B", label: "Group B - Residential (Hotels, Apartments)" },
@@ -176,9 +161,9 @@ const INITIAL_FORM_STATE = {
     occupancyGroup: "GROUP A",
     occupancyUse: "Residential",
     street: "",
-    barangay: "Amanoaoac",
-    municipality: "MAPANDAN",
-    province: "PANGASINAN",
+    barangay: "{{BARANGAY_NAME}}",
+    municipality: "E-LGU",
+    province: "{{PROVINCE_NAME}}",
     zipCode: "2429",
     buildingOfficial: "",
     buildingOfficialDate: "",
@@ -354,7 +339,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                     if (d.street) { updated.street = d.street; countExtracted++; }
 
                     if (d.barangay) {
-                        const matchedBrgy = MAPANDAN_BARANGAYS.find(
+                        const matchedBrgy = LGU_BARANGAYS.find(
                             b => b.toLowerCase() === d.barangay!.trim().toLowerCase()
                         );
                         if (matchedBrgy) {
@@ -429,9 +414,9 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
             occupancyGroup: item.occupancyGroup || "GROUP A",
             occupancyUse: currentUse === "Other Construction" ? "" : currentUse,
             street: item.street || "",
-            barangay: item.barangay || "Amanoaoac",
-            municipality: "MAPANDAN",
-            province: "PANGASINAN",
+            barangay: item.barangay || "{{BARANGAY_NAME}}",
+            municipality: "E-LGU",
+            province: "{{PROVINCE_NAME}}",
             zipCode: "2429",
             buildingOfficial: item.buildingOfficial || item.issuedBy || "",
             buildingOfficialDate: item.buildingOfficialDate ? new Date(item.buildingOfficialDate).toISOString().split("T")[0] : (item.buildingOfficialDate || ""),
@@ -740,8 +725,8 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
             dataToSubmit.append("occupancyUse", finalOccupancyUse);
             dataToSubmit.append("street", formData.street.trim());
             dataToSubmit.append("barangay", formData.barangay);
-            dataToSubmit.append("municipality", formData.municipality.trim() || "MAPANDAN");
-            dataToSubmit.append("province", formData.province.trim() || "PANGASINAN");
+            dataToSubmit.append("municipality", formData.municipality.trim() || "E-LGU");
+            dataToSubmit.append("province", formData.province.trim() || "{{PROVINCE_NAME}}");
             dataToSubmit.append("zipCode", formData.zipCode.trim() || "2429");
             dataToSubmit.append("buildingOfficial", formData.buildingOfficial.trim());
             dataToSubmit.append("buildingOfficialDate", formData.buildingOfficialDate.trim());
@@ -927,7 +912,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Barangays</SelectItem>
-                            {MAPANDAN_BARANGAYS.map((b) => (
+                            {LGU_BARANGAYS.map((b) => (
                                 <SelectItem key={b} value={b}>{b}</SelectItem>
                             ))}
                         </SelectContent>
@@ -1363,7 +1348,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                             <SelectValue placeholder="Select Barangay" />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {MAPANDAN_BARANGAYS.map(brgy => (
+                                                            {LGU_BARANGAYS.map(brgy => (
                                                                 <SelectItem key={brgy} value={brgy}>
                                                                     Brgy. {brgy}
                                                                 </SelectItem>
@@ -2198,7 +2183,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                     Office Scanner Setup Guide
                                 </DialogTitle>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    3 simple steps to scan certificates directly into EMapandan
+                                    3 simple steps to scan certificates directly into E-LGU
                                 </p>
                             </div>
                         </div>

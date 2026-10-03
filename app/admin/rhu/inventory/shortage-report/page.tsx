@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "../../actions";
 
 export const metadata = {
-    title: "Medicine Shortage Report | EMapandan Admin",
+    title: "Medicine Shortage Report | E-LGU Admin",
     description: "Monitor medicines with low or no stock across RHU and health centers. Ensure continuous availability of essential medicines for better healthcare service.",
 };
 

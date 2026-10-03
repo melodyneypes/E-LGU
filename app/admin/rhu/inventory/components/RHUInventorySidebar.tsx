@@ -299,7 +299,7 @@ export function RHUInventorySidebar({
                             const dosageDisplay = item.dosage && !item.name.toLowerCase().includes(item.dosage.toLowerCase())
                                 ? ` ${item.dosage}`
                                 : "";
-                            const centerLabel = item.healthCenterName || healthCenterName || "RHU Mapandan";
+                            const centerLabel = item.healthCenterName || healthCenterName || "Main Rural Health Unit (RHU)";
 
                             return (
                                 <div

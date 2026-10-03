@@ -36,7 +36,7 @@ const RATING_TO_NUM: Record<string, number> = {
 export default function TransactionFeedbackCard({
     transactionId,
     existingFeedback,
-    themeColor = "#2563eb",
+    themeColor = "#0038a8",
     onFeedbackSubmitted
 }: {
     transactionId: string;
@@ -87,10 +87,10 @@ export default function TransactionFeedbackCard({
         const ratingConfig = RATING_OPTIONS.find(r => r.key === feedbackData.rating) || RATING_OPTIONS[4];
 
         return (
-            <Card className="p-4 md:p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.06] shadow-md relative overflow-hidden space-y-2.5 animate-in fade-in duration-300">
+            <Card className="p-4 md:p-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.03] dark:bg-cyan-500/[0.06] shadow-md relative overflow-hidden space-y-2.5 animate-in fade-in duration-300">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
@@ -120,13 +120,13 @@ export default function TransactionFeedbackCard({
 
                 {/* Direct comment text without redundant card box wrapper */}
                 {feedbackData.comment && (
-                    <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed pl-8 border-l-2 border-emerald-500/30 py-0.5">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed pl-8 border-l-2 border-cyan-500/30 py-0.5">
                         &ldquo;{feedbackData.comment}&rdquo;
                     </p>
                 )}
 
-                <div className="flex items-center justify-between text-[9px] text-slate-400 font-medium italic pt-1 border-t border-emerald-500/10">
-                    <span>Thank you for helping us improve Mapandan&apos;s public services.</span>
+                <div className="flex items-center justify-between text-[9px] text-slate-400 font-medium italic pt-1 border-t border-cyan-500/10">
+                    <span>Thank you for helping us improve our public services.</span>
                     <span className="font-mono text-slate-400 shrink-0 ml-2">
                         {new Date(feedbackData.createdAt).toLocaleDateString("en-PH", {
                             month: "short",

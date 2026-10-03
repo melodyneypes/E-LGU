@@ -304,13 +304,10 @@ export default function PrintQueueTicket({
                         Republic of the Philippines
                     </span>
                     <span style={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '1px' }}>
-                        Municipality of Mapandan
-                    </span>
-                    <span style={{ fontSize: '6.5px', fontWeight: 'bold', letterSpacing: '0.5px', color: '#555' }}>
-                        Province of Pangasinan
+                        Municipality of E-LGU
                     </span>
                     <span style={{ fontSize: '7.5px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '3px', border: '1px solid black', padding: '1px 4px', borderRadius: '3px' }}>
-                        EMapandan Queue Portal
+                        E-LGU Queue Portal
                     </span>
                 </div>
 
@@ -398,12 +395,11 @@ export default function PrintQueueTicket({
                 {/* Dotted Divider */}
                 <div style={{ borderTop: '1.5px dotted black', margin: '8px 0 4px 0' }}></div>
 
-                {/* Footer Slogan */}
                 <div style={{ fontSize: '7px', fontWeight: 'bold', color: '#333', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Serbisyong Tapat at Totoo
+                    Smart Governance Portal
                 </div>
                 <div style={{ fontSize: '6px', color: '#666', marginTop: '1px' }}>
-                    Mapandan, Pangasinan
+                    Municipality of E-LGU
                 </div>
             </div>
         </div>,

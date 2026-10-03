@@ -527,7 +527,7 @@ export default function DocumentViewerModal({
                         </head>
                         <body>
                             <div class="header">
-                                <h2>${activeTitle?.toLowerCase().includes("permit") || activeTitle?.toLowerCase().includes("engineer") || activeTitle?.toLowerCase().includes("building") ? "Municipality of Mapandan - Municipal Engineering Office" : activeTitle?.toLowerCase().includes("tax") || activeTitle?.toLowerCase().includes("tdn") || activeTitle?.toLowerCase().includes("rpt") ? "Municipality of Mapandan - Municipal Assessor Office" : "Municipality of Mapandan - Official Document Archive"}</h2>
+                                <h2>${activeTitle?.toLowerCase().includes("permit") || activeTitle?.toLowerCase().includes("engineer") || activeTitle?.toLowerCase().includes("building") ? "Municipality of E-LGU - Municipal Engineering Office" : activeTitle?.toLowerCase().includes("tax") || activeTitle?.toLowerCase().includes("tdn") || activeTitle?.toLowerCase().includes("rpt") ? "Municipality of E-LGU - Municipal Assessor Office" : "Municipality of E-LGU - Official Document Archive"}</h2>
                                 <p>${activeTitle || "Official Document Archive"} • Printed on ${new Date().toLocaleDateString()}</p>
                             </div>
                             <div class="img-container">

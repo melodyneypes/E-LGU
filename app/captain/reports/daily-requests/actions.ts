@@ -24,7 +24,7 @@ export async function getCaptainTransactionReportData(params: {
             return { success: false, error: "Unauthorized" };
         }
 
-        const managedBarangay = user?.managedBarangay || params.barangay || "Apaya";
+        const managedBarangay = user?.managedBarangay || params.barangay || "{{BARANGAY_NAME}}";
 
         const fromDate = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         fromDate.setHours(0, 0, 0, 0);

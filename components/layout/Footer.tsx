@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Shield, Facebook, Twitter, Instagram, Mail, Phone, MapPin } from "lucide-react";
 import { useBarangay } from "@/components/providers/BarangayProvider";
+import lguConfig from "@/config/lgu.config.json";
 
 interface FooterProps {
     logoUrl?: string;
@@ -18,22 +19,21 @@ interface FooterProps {
     contactPhone?: string;
 }
 
-export function Footer({
-    logoUrl,
-    brandWord1 = "E",
-    brandWord2 = "Mapandan",
-    themeColor = "#2563eb",
-    facebookUrl = "#",
-    twitterUrl = "#",
-    instagramUrl = "#",
-    contactAddress = "Municipal Hall, Poblacion",
-    contactEmail = "info@portal.gov.ph",
-    contactPhone = "(075) 000-0000"
-}: FooterProps) {
+export function Footer(props: FooterProps) {
+    const themeColor = lguConfig.theme.primary;
+    const logoUrl = lguConfig.assets.logo;
+    const brandWord1 = lguConfig.identity.brandWord1;
+    const brandWord2 = lguConfig.identity.brandWord2;
+    const facebookUrl = lguConfig.social.facebook;
+    const twitterUrl = lguConfig.social.twitter;
+    const instagramUrl = lguConfig.social.instagram;
+    const contactAddress = lguConfig.contact.address;
+    const contactEmail = lguConfig.contact.email;
+    const contactPhone = lguConfig.contact.phone;
     const { selectedBarangay } = useBarangay();
 
     const ensureAbsoluteUrl = (url: string) => {
-        if (!url || url === "#") return "#";
+        if (!url || url === "#" || url.includes("{{")) return "#";
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("mailto:") || url.startsWith("tel:")) {
             return url;
         }
@@ -52,9 +52,10 @@ export function Footer({
                         >
                             {logoUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={logoUrl} alt="Logo" className="w-full h-full object-cover p-2" />
+                                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
                             ) : (
-                                <Shield className="w-6 h-6 text-white" />
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={lguConfig.assets.logo} alt="Logo" className="w-full h-full object-contain p-1" />
                             )}
                         </div>
                         <span className="text-xl font-black uppercase tracking-tighter text-slate-900 dark:text-white italic">
@@ -62,7 +63,7 @@ export function Footer({
                         </span>
                     </Link>
                     <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium italic leading-relaxed">
-                        Official website of the Municipality. Dedicated to transparent governance and sustainable growth.
+                        Official website of {lguConfig.identity.fullName}. Dedicated to transparent governance and sustainable growth.
                     </p>
                     <div className="flex items-center gap-4">
                         {[
@@ -84,8 +85,8 @@ export function Footer({
                         {[
                             { name: "About Us", href: "/about" },
                             { name: "Transparency Seal", href: "/about" },
-                            { name: "Road Advisory", href: "/road-advisory/mapandan" },
-                            { name: "POSO Portal", href: "/poso/mapandan" },
+                            { name: "Road Advisory", href: "/road-advisory/local" },
+                            { name: "POSO Portal", href: "/poso/portal" },
                             { name: "Citizens Charter", href: "/user/citizens-charter" },
                             { name: "Privacy Policy", href: "/privacy-policy" }
                         ].map((link) => (

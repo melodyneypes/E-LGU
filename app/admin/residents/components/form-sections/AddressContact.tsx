@@ -89,7 +89,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
             setIsGuest(true);
         } else {
             // Also check initial data if no category name is set yet (during mount)
-            if (!formCategoryName && data?.municipality && data.municipality.toLowerCase() !== "mapandan") {
+            if (!formCategoryName && data?.municipality && !["{{LGU_NAME}}", "e-lgu", "local government unit"].includes(data.municipality.toLowerCase())) {
                 setIsGuest(true);
             } else {
                 setIsGuest(false);
@@ -216,7 +216,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                     ) : (
                         <Input 
                             name="municipality" 
-                            defaultValue={data?.municipality || "Mapandan"} 
+                            defaultValue={data?.municipality || "E-LGU"}
                             readOnly 
                             className="bg-slate-100 dark:bg-slate-800 cursor-not-allowed font-bold uppercase" 
                             />
@@ -235,7 +235,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                     ) : (
                         <Input 
                             name="province" 
-                            defaultValue={data?.province || "Pangasinan"} 
+                            defaultValue={data?.province || "{{PROVINCE_NAME}}"}
                             readOnly 
                             className="bg-slate-100 dark:bg-slate-800 cursor-not-allowed font-bold uppercase" 
                         />

@@ -202,7 +202,7 @@ export default function RHUAppointmentSettingsClient({
                             <Clock className="w-5 h-5 text-rose-500 shrink-0" />
                             <div>
                                 <p className="font-bold text-rose-800 dark:text-rose-200">Health Center Admin Dashboard</p>
-                                <p className="text-[11px] opacity-90">You are configuring the schedule settings, active days, and slot capacities for your assigned health center: <span className="font-extrabold underline">{healthCenters.find(c => c.id === selectedCenterId)?.name || "Lalas Medical Clinic"}</span>.</p>
+                                <p className="text-[11px] opacity-90">You are configuring the schedule settings, active days, and slot capacities for your assigned health center: <span className="font-extrabold underline">{healthCenters.find(c => c.id === selectedCenterId)?.name || "{{BARANGAY_NAME}} Medical Clinic"}</span>.</p>
                             </div>
                         </div>
                     )}

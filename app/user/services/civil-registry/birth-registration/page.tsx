@@ -274,7 +274,7 @@ export default function BirthRegistrationPage() {
         const upperVal = val.toUpperCase();
         const found = barangaysList.find(b => upperVal.includes(b.toUpperCase()));
         if (found) {
-            return `${found.toUpperCase()}, MAPANDAN, PANGASINAN`;
+            return `${found.toUpperCase()}, MUNICIPALITY OF E-LGU`;
         }
         return val;
     };
@@ -1874,7 +1874,7 @@ export default function BirthRegistrationPage() {
                                                     </SelectTrigger>
                                                     <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
                                                         {barangaysList.map((brgy) => (
-                                                            <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MAPANDAN, PANGASINAN`}>
+                                                            <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MUNICIPALITY OF E-LGU`}>
                                                                 {brgy.toUpperCase()}
                                                             </SelectItem>
                                                         ))}

@@ -19,7 +19,7 @@ export default function UserLayoutClient({
     logoUrl,
     brandWord1 = "E",
     brandWord2 = "",
-    themeColor = "#2563eb"
+    themeColor = "#0038a8"
 }: UserLayoutClientProps) {
     const [mounted, setMounted] = React.useState(false);
     const { status } = useSession();

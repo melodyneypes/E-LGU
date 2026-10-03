@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "Payment Settings | Mapandan Portal",
+    title: "Payment Settings | E-LGU Portal",
     description: "Official administrative configuration for municipal Payments and merchant details.",
 };
 

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-    title: "Announcement Approvals | Mapandan Admin",
+    title: "Announcement Approvals | {{LGU_NAME}} Admin",
     description: "Executive review and approval queue for municipal announcements and department advisories.",
 };
 

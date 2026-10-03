@@ -117,7 +117,7 @@ export function UserJobsView({
             </div>
 
             <p className="text-sm md:text-lg text-slate-500 dark:text-slate-400 font-medium italic max-w-2xl leading-relaxed px-2 md:px-0">
-                Empowering Mapandan through employment. Find your next opportunity within the municipal government and local industries across all sectors.
+                Empowering our community through employment. Find your next opportunity within the municipal government and local industries across all sectors.
             </p>
 
             {/* Grid */}

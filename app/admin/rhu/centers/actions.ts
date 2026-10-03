@@ -211,7 +211,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
     } else {
         const passToUse = (params.password && params.password.trim().length >= 6)
             ? params.password.trim()
-            : "mapandan123";
+            : "LGU123";
         const hashedPassword = await bcrypt.hash(passToUse, 10);
         const newId = `usr${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
 

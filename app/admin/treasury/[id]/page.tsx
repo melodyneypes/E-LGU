@@ -325,8 +325,8 @@ export default function TreasuryDetailPage() {
         setViewerOpen(true);
     };
     const [branding, setBranding] = useState({
-        word1: "Mapandan",
-        word2: "Express",
+        word1: "E-",
+        word2: "LGU",
         logo: ""
     });
     const [additionalFeeLabel, setAdditionalFeeLabel] = useState("");
@@ -641,12 +641,12 @@ export default function TreasuryDetailPage() {
             setBranding({ word1: cachedW1, word2: cachedW2, logo: cachedLogo || "" });
         } else {
             Promise.all([
-                getSystemSettingAction("brand_word_1", "Mapandan"),
-                getSystemSettingAction("brand_word_2", "Express"),
+                getSystemSettingAction("brand_word_1", "E-"),
+                getSystemSettingAction("brand_word_2", "LGU"),
                 getSystemSettingAction("site_logo", "")
             ]).then(([w1, w2, logo]) => {
-                const word1 = w1.data || "Mapandan";
-                const word2 = w2.data || "Express";
+                const word1 = w1.data || "E-";
+                const word2 = w2.data || "LGU";
                 const logoUrl = logo.data || "";
                 setBranding({ word1, word2, logo: logoUrl });
                 localStorage.setItem("app_brand_word_1", word1);

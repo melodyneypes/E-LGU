@@ -39,6 +39,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { getAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
+import lguConfig from "@/config/lgu.config.json";
 
 // import { ensureBusinessPermitTransactionTypes, ensureCivilRegistryTransactionTypes, ensureBuildingPermitTransactionTypes } from "@/app/admin/transactions/actions";
 
@@ -94,10 +95,6 @@ export default async function Home({
     const settings = await getMultipleSystemSettings([
         "maintenance_mode",
         "maintenance_mode_updated_at",
-        "site_logo",
-        "brand_word_1",
-        "brand_word_2",
-        "theme_color",
         "section_dining_lodging",
         "section_places_to_visit",
         "section_events",
@@ -110,15 +107,6 @@ export default async function Home({
         "section_church",
         "section_map",
         "section_app_download",
-        "app_google_play_url",
-        "app_app_store_url",
-        "app_apk_download_url",
-        "social_facebook",
-        "social_twitter",
-        "social_instagram",
-        "contact_address",
-        "contact_email",
-        "contact_phone"
     ]);
 
     // Check Maintenance Mode
@@ -130,16 +118,19 @@ export default async function Home({
       redirect("/maintenance");
     }
 
-    const logoUrl = settings.get("site_logo") || "";
-    const brandWord1 = settings.get("brand_word_1") || "E";
-    const brandWord2 = settings.get("brand_word_2") || "";
-    const themeColor = settings.get("theme_color") || "#2563eb";
-    const facebookUrl = settings.get("social_facebook") || "#";
-    const twitterUrl = settings.get("social_twitter") || "#";
-    const instagramUrl = settings.get("social_instagram") || "#";
-    const contactAddress = settings.get("contact_address") || "Municipal Hall, Poblacion";
-    const contactEmail = settings.get("contact_email") || "info@portal.gov.ph";
-    const contactPhone = settings.get("contact_phone") || "(075) 000-0000";
+    const logoUrl = lguConfig.assets.logo;
+    const brandWord1 = lguConfig.identity.brandWord1;
+    const brandWord2 = lguConfig.identity.brandWord2;
+    const themeColor = lguConfig.theme.primary;
+    const facebookUrl = lguConfig.social.facebook;
+    const twitterUrl = lguConfig.social.twitter;
+    const instagramUrl = lguConfig.social.instagram;
+    const contactAddress = lguConfig.contact.address;
+    const contactEmail = lguConfig.contact.email;
+    const contactPhone = lguConfig.contact.phone;
+    const googlePlayUrl = lguConfig.apps.googlePlayUrl;
+    const appStoreUrl = lguConfig.apps.appStoreUrl;
+    const apkDownloadUrl = lguConfig.apps.apkDownloadUrl;
 
     // Section visibility settings (default to true if not set)
     const showDiningLodging = settings.get("section_dining_lodging") !== "false";
@@ -153,11 +144,8 @@ export default async function Home({
     const showEmergency = settings.get("section_emergency") !== "false";
     const showChurch = settings.get("section_church") !== "false";
     const showMap = settings.get("section_map") !== "false";
-    const showAppDownload = settings.get("section_app_download") !== "false";
-
-    const googlePlayUrl = settings.get("app_google_play_url") || "";
-    const appStoreUrl = settings.get("app_app_store_url") || "";
-    const apkDownloadUrl = settings.get("app_apk_download_url") || "";
+    const showAppDownload = settings.get("section_app_download") !== "false" &&
+        [googlePlayUrl, appStoreUrl, apkDownloadUrl].some((url) => url && !url.includes("{{"));
 
     const announcementSelect = {
         id: true,
@@ -629,5 +617,3 @@ export default async function Home({
         </main>
     );
 }
-
-

@@ -204,7 +204,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
 
                 {/* Subtitle (scrolls naturally with content on mobile) */}
                 <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
-                    Your concerns help us maintain a better Mapandan.
+                    Your concerns help us maintain a better and safer community.
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-3.5 md:space-y-4">

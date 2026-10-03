@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import lguConfig from "../config/lgu.config.json";
 
 const prisma = new PrismaClient();
 
@@ -8,27 +9,27 @@ async function main() {
     const posoSettings = [
         {
             key: "poso_location",
-            value: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines",
+            value: lguConfig.poso.address,
             description: "Official POSO Office Address",
         },
         {
             key: "poso_hotline",
-            value: "(075) 529-XXXX / +63 917 123 4567",
+            value: lguConfig.poso.hotline,
             description: "POSO Emergency & Incident Hotline Numbers",
         },
         {
             key: "poso_operating_hour",
-            value: "Monday - Friday: 8:00 AM - 5:00 PM",
+            value: lguConfig.poso.officeHours,
             description: "POSO Office Operating Hours",
         },
         {
             key: "poso_official_email",
-            value: "poso@mapandan.gov.ph",
+            value: lguConfig.poso.email,
             description: "POSO Official Public Contact Email",
         },
         {
             key: "poso_facebook",
-            value: "https://facebook.com/MapandanPOSO",
+            value: lguConfig.social.posoFacebook,
             description: "POSO Official Facebook Page Link",
         },
     ];

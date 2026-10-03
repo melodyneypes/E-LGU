@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -100,24 +101,7 @@ function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
     );
 }
 
-const MAPANDAN_BARANGAYS = [
-    "Amanoaoac",
-    "Apaya",
-    "Aserda",
-    "Baloling",
-    "Coral",
-    "Golden",
-    "Lanas",
-    "Nilombot",
-    "Patland",
-    "Pias",
-    "Poblacion",
-    "Primicias",
-    "Santa Maria",
-    "Torres",
-    "Valenzuela"
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 const LINE_OF_BUSINESS_OPTIONS = [
     "Retail Store",
     "Wholesale Distribution",
@@ -299,8 +283,8 @@ export function BusinessPermitAppointmentClient({
         houseNumber: resident?.houseNumber || "",
         street: resident?.street || "",
         barangay: resident?.barangay || "",
-        municipality: resident?.municipality || "Mapandan",
-        province: resident?.province || "Pangasinan",
+        municipality: resident?.municipality || "E-LGU",
+        province: resident?.province || "Province",
         contactNumber: resident?.contactNumber || "",
         email: resident?.email || "",
         occupation: resident?.occupation || ""
@@ -765,7 +749,7 @@ export function BusinessPermitAppointmentClient({
                                         {
                                             id: "NEW",
                                             label: "Business Permit - New",
-                                            desc: "Apply for a new business permit for starting a business in Mapandan, Pangasinan.",
+                                            desc: "Apply for a new business permit for starting a business in the municipality.",
                                             icon: Sparkles
                                         },
                                         {
@@ -866,7 +850,7 @@ export function BusinessPermitAppointmentClient({
                                             type="text"
                                             value={formState.businessName}
                                             onChange={e => handleInputChange("businessName", e.target.value)}
-                                            placeholder="e.g. Mapandan Express Café Inc."
+                                            placeholder="e.g. Metro Express Café Inc."
                                             className={cn(
                                                 "rounded-xl h-12 border-slate-200 transition-all duration-200",
                                                 showValidationErrors && !formState.businessName && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
@@ -880,7 +864,7 @@ export function BusinessPermitAppointmentClient({
                                             type="text"
                                             value={formState.tradeName}
                                             onChange={e => handleInputChange("tradeName", e.target.value)}
-                                            placeholder="e.g. Mapandan Express Café"
+                                            placeholder="e.g. Metro Express Café"
                                             className="rounded-xl h-12 border-slate-200"
                                         />
                                     </div>
@@ -919,7 +903,7 @@ export function BusinessPermitAppointmentClient({
                                                 )}
                                             >
                                                 <option value="" disabled className="dark:bg-[#0c0d12] text-slate-400">Select Barangay...</option>
-                                                {MAPANDAN_BARANGAYS.map((b) => (
+                                                {LGU_BARANGAYS.map((b) => (
                                                     <option key={b} value={b} className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">{b}</option>
                                                 ))}
                                             </select>
@@ -1909,7 +1893,7 @@ export function BusinessPermitAppointmentClient({
 
                                 <div className="space-y-2">
                                     <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>3. Graded Business Tax</h4>
-                                    <p className="font-medium text-slate-500 dark:text-slate-400">Tax levied on business operations in Mapandan, calculated based on the pathway type:</p>
+                                    <p className="font-medium text-slate-500 dark:text-slate-400">Tax levied on business operations in the municipality, calculated based on the pathway type:</p>
                                     <ul className="list-disc list-inside space-y-1.5 pl-1.5 text-slate-500 dark:text-slate-400">
                                         <li>
                                             <strong className="text-slate-700 dark:text-slate-200">Newly-Started Businesses:</strong>

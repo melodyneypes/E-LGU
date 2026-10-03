@@ -22,7 +22,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     const hasMap = item.googleMapsUrl || (item.latitude && item.longitude);
     const mapQuery = item.latitude && item.longitude
         ? `${item.latitude},${item.longitude}`
-        : `${item.title}, ${item.venueName}, Mapandan, Pangasinan`;
+        : `${item.title}, ${item.venueName}, Municipality of E-LGU`;
     const publicMapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
     return (

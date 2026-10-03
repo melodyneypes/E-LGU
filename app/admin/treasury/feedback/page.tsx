@@ -81,7 +81,7 @@ export default async function TreasuryFeedbackPage(props: {
                     Citizen Feedback & Ratings
                 </h1>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Monitor public satisfaction levels, review star ratings, and read suggestions for Mapandan Treasury services.
+                    Monitor public satisfaction levels, review star ratings, and read suggestions for Municipal Treasury services.
                 </p>
             </div>
 

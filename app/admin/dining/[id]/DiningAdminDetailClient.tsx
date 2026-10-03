@@ -193,7 +193,7 @@ export function DiningAdminDetailClient({ dining }: Props) {
     // Map implementation
     const mapQuery = dining.latitude && dining.longitude
         ? `${dining.latitude},${dining.longitude}`
-        : `${dining.name}, ${dining.address}, Mapandan, Pangasinan`;
+        : `${dining.name}, ${dining.address}, {{LGU_NAME}}, {{PROVINCE_NAME}}`;
     const publicMapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
     return (

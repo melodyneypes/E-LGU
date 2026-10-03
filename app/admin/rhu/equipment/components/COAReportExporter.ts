@@ -3,6 +3,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import lguConfig from "@/config/lgu.config.json";
 
 export interface COAExportOptions {
     facility?: string;
@@ -16,17 +17,12 @@ export interface COAExportOptions {
 }
 
 /**
- * Loads the official Mapandan municipality logo for PDF header embedding.
- * Prioritizes custom siteLogo from settings, local static asset, or Supabase public storage.
+ * Loads the configured neutral logo for PDF header embedding.
  */
-async function loadLogoImage(logoUrl?: string): Promise<string | null> {
+async function loadLogoImage(): Promise<string | null> {
     if (typeof window === "undefined") return null;
 
-    const urlsToTry: string[] = [
-        logoUrl,
-        "/images/mapandan-logo.png",
-        "https://ntanbjizlavyokjdauag.supabase.co/storage/v1/object/public/system-assets/logos/logo-1787803174016.png"
-    ].filter(Boolean) as string[];
+    const urlsToTry = [lguConfig.assets.reportLogo];
 
     for (const url of urlsToTry) {
         if (url.startsWith("data:image/")) return url;
@@ -175,8 +171,8 @@ export async function exportCOAPDF(assets: any[], options: COAExportOptions = {}
     // =========================================================================
     // 1. OFFICIAL LGU HEADER
     // =========================================================================
-    // Official Mapandan Municipal Logo (Left)
-    const logoDataUrl = await loadLogoImage(options.logoUrl);
+    // Official {{LGU_NAME}} Municipal Logo (Left)
+    const logoDataUrl = await loadLogoImage();
     if (logoDataUrl) {
         try {
             doc.addImage(logoDataUrl, "PNG", margin + 1.5, 7.5, 19, 19);
@@ -204,17 +200,17 @@ export async function exportCOAPDF(assets: any[], options: COAExportOptions = {}
     doc.text("REPUBLIC OF THE PHILIPPINES", pageWidth / 2, 10, { align: "center" });
 
     doc.setFontSize(8);
-    doc.text("PROVINCE OF PANGASINAN", pageWidth / 2, 14, { align: "center" });
+    doc.text("PROVINCE OF {{PROVINCE_NAME}}", pageWidth / 2, 14, { align: "center" });
 
     doc.setFontSize(10.5);
     doc.setTextColor(20, 35, 70);
-    doc.text("MUNICIPALITY OF MAPANDAN", pageWidth / 2, 18.5, { align: "center" });
+    doc.text("MUNICIPALITY OF {{LGU_NAME}}", pageWidth / 2, 18.5, { align: "center" });
 
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(80, 80, 80);
     doc.text("MUNICIPAL HEALTH OFFICE • RURAL HEALTH UNIT (RHU) & BARANGAY HEALTH STATIONS", pageWidth / 2, 22.5, { align: "center" });
-    doc.text("Official Property & Supply Inventory Monitoring System • Email: rhu@mapandan.gov.ph", pageWidth / 2, 26, { align: "center" });
+    doc.text(`Official Property & Supply Inventory Monitoring System • Email: ${lguConfig.seedAccounts.rhuEmail}`, pageWidth / 2, 26, { align: "center" });
 
     // Decorative Double Rule
     doc.setDrawColor(themeColorRGB[0], themeColorRGB[1], themeColorRGB[2]);
@@ -259,7 +255,7 @@ export async function exportCOAPDF(assets: any[], options: COAExportOptions = {}
     doc.text("Entity Name / LGU:", margin + 3, metaBoxY + 4.5);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(25, 35, 60);
-    doc.text("MUNICIPALITY OF MAPANDAN, PANGASINAN", margin + 30, metaBoxY + 4.5);
+    doc.text("MUNICIPALITY OF {{LGU_NAME}}, {{PROVINCE_NAME}}", margin + 30, metaBoxY + 4.5);
 
     doc.setFont("helvetica", "normal");
     doc.setTextColor(80, 80, 80);
@@ -529,14 +525,14 @@ export async function exportCOAPDF(assets: any[], options: COAExportOptions = {}
         doc.setFontSize(6.5);
         doc.setTextColor(130, 140, 155);
 
-        doc.text("Local Government Unit of Mapandan • Rural Health Unit Property Management System", margin, pageHeight - 5);
+        doc.text("Local Government Unit of {{LGU_NAME}} • Rural Health Unit Property Management System", margin, pageHeight - 5);
         doc.text("Official Document • Subject to Commission on Audit (COA) Inspection", pageWidth / 2, pageHeight - 5, { align: "center" });
         doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 5, { align: "right" });
     }
 
     // Save and download PDF
     const cleanDate = new Date().toISOString().split("T")[0];
-    const fileName = `${options.reportType || "COA_REPORT"}_Mapandan_RHU_${cleanDate}.pdf`;
+    const fileName = `${options.reportType || "COA_REPORT"}_LGU_RHU_${cleanDate}.pdf`;
     doc.save(fileName);
 }
 
@@ -582,6 +578,6 @@ export function exportCOAExcel(assets: any[]) {
     }, {});
     worksheet["!cols"] = Object.keys(max_width).map(k => ({ wch: Math.min(max_width[k], 40) }));
 
-    const fileName = `COA_Physical_Inventory_Ledger_Mapandan_${new Date().toISOString().split("T")[0]}.xlsx`;
+    const fileName = `COA_Physical_Inventory_Ledger_LGU_${new Date().toISOString().split("T")[0]}.xlsx`;
     XLSX.writeFile(workbook, fileName);
 }

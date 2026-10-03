@@ -8,7 +8,7 @@ import CedulaTemplateStudioClient from "./CedulaTemplateStudioClient";
 import { getCedulaLayoutAction } from "./actions";
 
 export const metadata: Metadata = {
-    title: "Cedula Template Studio | Mapandan Portal",
+    title: "Cedula Template Studio | E-LGU Portal",
     description: "Official visual layout designer and printing calibration studio for Community Tax Certificates (Cedula).",
 };
 

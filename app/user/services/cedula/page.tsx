@@ -99,7 +99,7 @@ export default function CedulaApplicationPage() {
         notFound();
     }
     const router = useRouter();
-    const { hydrateDraft, hydrateDraftFiles, persistDraft, persistDraftFile, clearDraft } = useDraft<FormState>("emapandan_cedula_draft");
+    const { hydrateDraft, hydrateDraftFiles, persistDraft, persistDraftFile, clearDraft } = useDraft<FormState>("E-LGU_cedula_draft");
     const [currentStep, setCurrentStep] = useState<Step>("STATUS");
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);

@@ -65,7 +65,7 @@ export function CaptainPaymentsClient({
     initialCategory = "ALL",
     initialMethod = "ALL",
     initialSearch = "",
-    managedBarangay = "Apaya",
+    managedBarangay = "{{BARANGAY_NAME}}",
 }: CaptainPaymentsClientProps) {
     const [payments, setPayments] = useState<PaymentItem[]>(initialData.payments);
     const [totalCount, setTotalCount] = useState(initialData.totalCount);

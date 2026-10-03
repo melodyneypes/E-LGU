@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Building2 } from "lucide-react";
 import { renderToString } from "react-dom/server";
+import { lguMapCenter } from "@/lib/utils/lgu";
 
 const healthCenterIcon = L.divIcon({
     className: "custom-health-marker",
@@ -36,24 +37,8 @@ interface HealthCenterMapProps {
 }
 
 export default function HealthCenterMap({ centerName, lat, lng }: HealthCenterMapProps) {
-    // Determine accurate coordinates based on health center name if not explicitly provided
-    let defaultLat = 16.0264;
-    let defaultLng = 120.4537;
-
-    const lowerName = centerName.toLowerCase();
-    if (lowerName.includes("lalas")) {
-        defaultLat = 16.0235;
-        defaultLng = 120.4475;
-    } else if (lowerName.includes("torres")) {
-        defaultLat = 16.0380;
-        defaultLng = 120.4580;
-    } else if (lowerName.includes("aplaya")) {
-        defaultLat = 16.0150;
-        defaultLng = 120.4420;
-    }
-
-    const finalLat = lat || defaultLat;
-    const finalLng = lng || defaultLng;
+    const finalLat = lat ?? lguMapCenter[0];
+    const finalLng = lng ?? lguMapCenter[1];
     const position: [number, number] = [finalLat, finalLng];
 
     return (
@@ -73,7 +58,7 @@ export default function HealthCenterMap({ centerName, lat, lng }: HealthCenterMa
                     <Popup className="custom-popup">
                         <div className="p-1 space-y-1">
                             <p className="text-[11px] font-black uppercase tracking-wider text-rose-600 leading-tight">{centerName}</p>
-                            <p className="text-[9px] text-slate-500 font-semibold italic">Mapandan, Pangasinan</p>
+                            <p className="text-[9px] text-slate-500 font-semibold italic">Municipality of E-LGU</p>
                         </div>
                     </Popup>
                 </Marker>

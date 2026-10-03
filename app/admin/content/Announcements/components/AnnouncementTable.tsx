@@ -49,7 +49,7 @@ export function AnnouncementTable() {
     const userId = currentUser?.id;
     const userRole = currentUser?.role;
     const userCenterId = currentUser?.matchedCenterId;
-    const isGlobalManager = (userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "CONTENT_ADMIN") && !userCenterId && !userEmail.includes("lalas") && !userEmail.includes("main");
+    const isGlobalManager = (userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "CONTENT_ADMIN") && !userCenterId && !userEmail.includes("{{BARANGAY_NAME}}") && !userEmail.includes("main");
 
     const updateUrlParam = (paramName: string, value: string) => {
         const params = new URLSearchParams(searchParams.toString());

@@ -110,7 +110,7 @@ export function JobDetailView({ job }: { job: Job }) {
                             <div className="flex flex-col min-w-0">
                                 <span className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 truncate">Location</span>
                                 <span className="text-[8px] md:text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest italic truncate">
-                                    {job.location || "LGU Mapandan"}
+                                    {job.location || "Municipality of E-LGU"}
                                 </span>
                             </div>
                         </div>
@@ -183,12 +183,12 @@ export function JobDetailView({ job }: { job: Job }) {
                                         height="100%"
                                         frameBorder="0"
                                         style={{ border: 0 }}
-                                        src={mapLink?.includes("embed") ? mapLink : `https://maps.google.com/maps?q=${encodeURIComponent(job.location ? `${job.location}, Mapandan, Pangasinan` : 'Mapandan, Pangasinan')}&t=&z=15&ie=UTF8&iwloc=&output=embed`} 
+                                        src={mapLink?.includes("embed") ? mapLink : `https://maps.google.com/maps?q=${encodeURIComponent(job.location ? `${job.location}, Municipality of E-LGU` : 'Municipality of E-LGU')}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                                         allowFullScreen 
                                         loading="lazy" 
                                     ></iframe>
                                     <div className="absolute top-4 right-4 z-20">
-                                        <Link href={job.mapUrl || `https://maps.google.com/maps?q=${encodeURIComponent(`${job.location || 'Municipal Office'}, Mapandan`)}`} target="_blank">
+                                        <Link href={job.mapUrl || `https://maps.google.com/maps?q=${encodeURIComponent(`${job.location || 'Municipal Office'}, Municipality of E-LGU`)}`} target="_blank">
                                             <Button className="bg-primary text-white rounded-xl font-black uppercase tracking-widest text-[9px] flex items-center gap-2 px-6 h-10 shadow-2xl">
                                                 <Navigation className="w-3.5 h-3.5" />
                                                 Get Directions
@@ -270,4 +270,3 @@ export function JobDetailView({ job }: { job: Job }) {
         </div>
     );
 }
-

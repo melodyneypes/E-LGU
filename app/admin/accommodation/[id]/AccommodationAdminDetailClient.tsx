@@ -193,7 +193,7 @@ export function AccommodationAdminDetailClient({ accommodation }: Props) {
     // Map implementation
     const mapQuery = accommodation.latitude && accommodation.longitude
         ? `${accommodation.latitude},${accommodation.longitude}`
-        : `${accommodation.name}, ${accommodation.address}, Mapandan, Pangasinan`;
+        : `${accommodation.name}, ${accommodation.address}, {{LGU_NAME}}, {{PROVINCE_NAME}}`;
     const publicMapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
     // Parse amenities into tags

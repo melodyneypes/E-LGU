@@ -134,7 +134,7 @@ export default function BploDetailPage({ params }: PageProps) {
 
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
     const [branding, setBranding] = useState({
-        word1: "Mapandan",
+        word1: "{{LGU_NAME}}",
         word2: "Express",
         logo: ""
     });
@@ -208,12 +208,12 @@ export default function BploDetailPage({ params }: PageProps) {
             }
         });
         Promise.all([
-            getSystemSettingAction("brand_word_1", "Mapandan"),
+            getSystemSettingAction("brand_word_1", "{{LGU_NAME}}"),
             getSystemSettingAction("brand_word_2", "Express"),
             getSystemSettingAction("site_logo", "")
         ]).then(([w1, w2, logo]) => {
             setBranding({
-                word1: w1.data || "Mapandan",
+                word1: w1.data || "{{LGU_NAME}}",
                 word2: w2.data || "Express",
                 logo: logo.data || ""
             });

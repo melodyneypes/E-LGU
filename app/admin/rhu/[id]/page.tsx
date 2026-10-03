@@ -74,7 +74,7 @@ export default async function RHUTransactionDetailPage({ params }: PageProps) {
                 (c.userId && String(c.userId) === String((session.user as any).id)) ||
                 (assignedDoctorId && c.userId && String(c.userId) === String(assignedDoctorId)) ||
                 (c.accountEmail && String(c.accountEmail).toLowerCase() === userEmail) ||
-                (userEmail.includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
+                (userEmail.includes("{{BARANGAY_NAME}}") && String(c.name).toLowerCase().includes("{{BARANGAY_NAME}}")) ||
                 (userEmail.includes("main") && String(c.name).toLowerCase().includes("main")) ||
                 ((session.user as any).managedBarangay && c.barangay === (session.user as any).managedBarangay)
             );
@@ -83,7 +83,7 @@ export default async function RHUTransactionDetailPage({ params }: PageProps) {
                 const matchesId = txCenterId && String(txCenterId) === String(matchedCenter.id);
                 const matchesName = txCenterName && (
                     txCenterName.includes(matchedCenter.name.toLowerCase()) ||
-                    (matchedCenter.name.toLowerCase().includes("lalas") && txCenterName.includes("lalas")) ||
+                    (matchedCenter.name.toLowerCase().includes("{{BARANGAY_NAME}}") && txCenterName.includes("{{BARANGAY_NAME}}")) ||
                     (matchedCenter.name.toLowerCase().includes("main") && txCenterName.includes("main"))
                 );
 

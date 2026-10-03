@@ -150,7 +150,7 @@ export function MayorHotlinesTable({
                                                         {item.name}
                                                     </h3>
                                                     <p className="text-xs text-slate-400 truncate max-w-xs">
-                                                        {item.address || "Mapandan, Pangasinan"}
+                                                        {item.address || "Municipality of E-LGU"}
                                                     </p>
                                                 </div>
                                             </div>

@@ -205,7 +205,7 @@ export default function AssessorTransactionDetailPage() {
     const isApplicantTheOwner = applicantName.toLowerCase().replace(/\s+/g, "") === ownerName.toLowerCase().replace(/\s+/g, "");
     const tdn = rpt.tdn || addData.tdn || "N/A";
     const pin = rpt.pin || addData.pin || "N/A";
-    const barangay = rpt.barangay || addData.barangay || "Mapandan";
+    const barangay = rpt.barangay || addData.barangay || "{{LGU_NAME}}";
 
     const totalTaxDue = Number(rpt.totalTaxDue || addData.totalTaxDue || tx.totalAmount || 0);
     const basicTax = Number(rpt.basicTax || addData.basicTax || (totalTaxDue > 0 ? totalTaxDue / 2 : 0));
@@ -364,7 +364,7 @@ export default function AssessorTransactionDetailPage() {
                                         <div className="space-y-1 col-span-2">
                                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Complete Property Address</span>
                                             <p className="font-bold text-slate-200">
-                                                {addData.propertyAddress || rpt.propertyAddress || `${barangay}, Mapandan, Pangasinan`}
+                                                {addData.propertyAddress || rpt.propertyAddress || `${barangay}, {{LGU_NAME}}, {{PROVINCE_NAME}}`}
                                             </p>
                                         </div>
                                     </div>

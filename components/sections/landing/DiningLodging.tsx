@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { MapPin, Utensils, Bed, Loader2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+import lguConfig from "@/config/lgu.config.json";
 
 interface CombinedItem {
     id: string;
@@ -43,7 +45,7 @@ export function DiningLodging({ items }: DiningLodgingProps) {
                         Kainan at Tuluyan
                     </h2>
                     <p className="text-xs md:text-base text-slate-500 font-medium italic max-w-xl line-clamp-2 md:line-clamp-none">
-                        Discover the authentic flavors and premium retreats of Mapandan in one mixed experience.
+                        Discover authentic local dining, products, and premium stays across the municipality in one mixed experience.
                     </p>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3">
@@ -90,35 +92,42 @@ export function DiningLodging({ items }: DiningLodgingProps) {
 
 function DiningCard({ item }: { item: CombinedItem }) {
     const [isImageLoading, setIsImageLoading] = React.useState(true);
+    const [hasError, setHasError] = React.useState(false);
     
     const isDining = item.itemType === "kainan";
     const CategoryIcon = isDining ? Utensils : Bed;
     const subCategory = isDining ? item.cuisineType : item.type;
     const detailHref = isDining ? `/user/dining/${item.id}` : `/user/accommodation/${item.id}`;
 
+    const activeImageUrl = hasError ? null : lguConfig.assets.contentPlaceholder;
+
     return (
         <div>
             <Link href={detailHref}>
                 <div className="group relative flex flex-col space-y-2 md:space-y-4 cursor-pointer">
                     <div className="relative aspect-[4/3] rounded-2xl md:rounded-[2rem] overflow-hidden shadow-sm md:shadow-xl ring-1 ring-slate-200 dark:ring-white/5 transition-transform duration-500 group-hover:scale-[1.02] group-hover:ring-primary/40 bg-slate-100 dark:bg-slate-900">
-                        {item.imageUrl ? (
+                        {activeImageUrl ? (
                             <>
                                 <div className={`absolute inset-0 z-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 transition-opacity duration-700 ${isImageLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                                     <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
                                 </div>
                                 <Image
-                                    src={item.imageUrl}
+                                    src={activeImageUrl}
                                     alt={item.name}
                                     fill
                                     sizes="(max-width: 768px) 50vw, 300px"
                                     loading="lazy"
                                     onLoad={() => setIsImageLoading(false)}
+                                    onError={() => {
+                                        setIsImageLoading(false);
+                                        setHasError(true);
+                                    }}
                                     className={`object-cover transition-all duration-700 group-hover:scale-110 ${isImageLoading ? 'opacity-0 scale-105 blur-sm' : 'opacity-100 scale-100 blur-0'}`}
                                 />
                             </>
                         ) : (
-                            <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
-                                <CategoryIcon className="w-8 h-8 md:w-12 md:h-12 text-slate-300" />
+                            <div className="absolute inset-0 bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
+                                <CategoryIcon className="w-8 h-8 md:w-12 md:h-12 text-slate-300 dark:text-slate-600" />
                             </div>
                         )}
                         <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20 flex flex-col items-start gap-1 md:gap-2">
@@ -148,14 +157,14 @@ function DiningCard({ item }: { item: CombinedItem }) {
 
                     <div className="space-y-1 md:space-y-2 px-1">
                         <h3 className="text-sm md:text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight truncate group-hover:text-primary transition-colors">
-                            {item.name}
+                            {sanitizeLguText(item.name)}
                         </h3>
                         <div className="flex items-center gap-1 text-slate-400">
                             <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3 min-w-[10px] md:min-w-[12px]" />
-                            <span className="text-[8px] md:text-[10px] font-bold uppercase truncate">{item.address}</span>
+                            <span className="text-[8px] md:text-[10px] font-bold uppercase truncate">{sanitizeLguText(item.address)}</span>
                         </div>
                         <p className="text-[10px] md:text-xs text-slate-500 line-clamp-2 md:line-clamp-2 leading-relaxed font-medium italic pt-0.5 md:pt-1">
-                            {item.description}
+                            {sanitizeLguText(item.description)}
                         </p>
                     </div>
                 </div>

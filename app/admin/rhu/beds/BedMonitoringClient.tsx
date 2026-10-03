@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import React, { useState, useMemo, useTransition } from "react";
 import {
@@ -352,16 +354,16 @@ export default function BedMonitoringClient({
         let targetCenterObj = initialCenters.find((c) => c.id === targetCenterId) || matchedCenter;
         let targetCenterName = matchedCenter 
             ? matchedCenter.name 
-            : (targetFacilityType === "RHU" ? "RHU Mapandan" : (targetCenterObj?.name || "Health Center"));
+            : (targetFacilityType === "RHU" ? "Municipal RHU" : (targetCenterObj?.name || "Health Center"));
 
-        // Intelligent auto-assignment: If user added a bed under RHU Main, but the bed name explicitly specifies a health center (e.g., "LALAS" or center name)
+        // Intelligent auto-assignment: If user added a bed under RHU Main, but the bed name explicitly specifies a health center (e.g., "{{BARANGAY_NAME}}" or center name)
         if (!matchedCenter && targetFacilityType === "RHU") {
             const lowerBed = newBedNumber.toLowerCase();
             const matchedHealthCenter = initialCenters.find((c) => {
                 const cName = c.name.toLowerCase();
                 const cCode = (c.code || "").toLowerCase();
                 return (
-                    (cName.includes("lalas") && lowerBed.includes("lalas")) ||
+                    (cName.includes("{{BARANGAY_NAME}}") && lowerBed.includes("{{BARANGAY_NAME}}")) ||
                     (cCode && lowerBed.includes(cCode)) ||
                     lowerBed.includes(cName)
                 );
@@ -493,7 +495,7 @@ export default function BedMonitoringClient({
         const centerObj = initialCenters.find((c) => c.id === targetCenterId) || matchedCenter;
         const targetCenterName = matchedCenter 
             ? matchedCenter.name 
-            : (targetFacilityType === "RHU" ? "RHU Mapandan" : (centerObj?.name || "Health Center"));
+            : (targetFacilityType === "RHU" ? "Municipal RHU" : (centerObj?.name || "Health Center"));
 
         startTransition(async () => {
             const res = await initializeFacilityBeds({
@@ -531,7 +533,7 @@ export default function BedMonitoringClient({
                                     RHU – Hospital Bed Monitoring
                                 </h1>
                                 <p className="text-xs sm:text-sm text-slate-400 font-medium leading-relaxed">
-                                    Monitor real-time bed availability and occupancy across RHU and all health centers in Mapandan. Ensure efficient patient flow and better resource management.
+                                    Monitor real-time bed availability and occupancy across RHU and all health centers in {sanitizeLguText("{{LGU_NAME}}")}. Ensure efficient patient flow and better resource management.
                                 </p>
                             </div>
                         </div>
@@ -633,7 +635,7 @@ export default function BedMonitoringClient({
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ALL">All Facilities</SelectItem>
-                                        <SelectItem value="RHU">🏥 RHU Mapandan (Main)</SelectItem>
+                                        <SelectItem value="RHU">🏥 RHU {sanitizeLguText("{{LGU_NAME}}")} (Main)</SelectItem>
                                         {initialCenters.map((c) => (
                                             <SelectItem key={c.id} value={c.id}>
                                                 🏢 {c.name}
@@ -699,7 +701,7 @@ export default function BedMonitoringClient({
                                     </h3>
                                     <span className="text-[11px] text-slate-400">
                                         {selectedCenterId === "RHU"
-                                            ? "Showing beds stationed at RHU Mapandan (Main Center)"
+                                            ? "Showing beds stationed at RHU {{LGU_NAME}} (Main Center)"
                                             : selectedCenterId !== "ALL"
                                                 ? `Stationed at ${initialCenters.find((c) => c.id === selectedCenterId)?.name || "selected center"}`
                                                 : "Showing beds across RHU Main and all Barangay Health Centers"}
@@ -751,7 +753,7 @@ export default function BedMonitoringClient({
                                                 <p className="font-semibold text-sm">No beds configured or found</p>
                                                 <p className="text-xs opacity-70 mt-1">
                                                     {facilityBeds.length === 0
-                                                        ? `You can set up standard facility beds for ${selectedCenterId === "RHU" ? "RHU Mapandan" : (selectedCenterId !== "ALL" ? (initialCenters.find(c => c.id === selectedCenterId)?.name || "Health Center") : "your facility")} below.`
+                                                        ? `You can set up standard facility beds for ${selectedCenterId === "RHU" ? "RHU {{LGU_NAME}}" : (selectedCenterId !== "ALL" ? (initialCenters.find(c => c.id === selectedCenterId)?.name || "Health Center") : "your facility")} below.`
                                                         : "Try adjusting your department, type, or search filters."}
                                                 </p>
                                                 {facilityBeds.length === 0 && (
@@ -790,8 +792,8 @@ export default function BedMonitoringClient({
                                                                 "w-3.5 h-3.5 shrink-0",
                                                                 b.facilityType === "RHU" ? "text-rose-500" : "text-blue-500"
                                                             )} />
-                                                            <span className="truncate max-w-[150px] sm:max-w-[200px]" title={b.healthCenterName || (b.facilityType === "RHU" ? "RHU Mapandan" : "Health Center")}>
-                                                                {b.healthCenterName || (b.facilityType === "RHU" ? "RHU Mapandan" : "Health Center")}
+                                                            <span className="truncate max-w-[150px] sm:max-w-[200px]" title={b.healthCenterName || (b.facilityType === "RHU" ? "RHU {{LGU_NAME}}" : "Health Center")}>
+                                                                {b.healthCenterName || (b.facilityType === "RHU" ? "RHU {{LGU_NAME}}" : "Health Center")}
                                                             </span>
                                                         </div>
                                                         {b.notes && (
@@ -1129,7 +1131,7 @@ export default function BedMonitoringClient({
                             <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-[#162340]">
                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-semibold border border-blue-500/20">
                                     <Building2 className="w-3.5 h-3.5" />
-                                    <span>Facility: {selectedBed.healthCenterName || (selectedBed.facilityType === "RHU" ? "RHU Mapandan (Main)" : "Health Center")}</span>
+                                    <span>Facility: {selectedBed.healthCenterName || (selectedBed.facilityType === "RHU" ? "RHU {{LGU_NAME}} (Main)" : "Health Center")}</span>
                                 </div>
                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 text-xs font-semibold">
                                     <span>Department: {selectedBed.department}</span>
@@ -1409,7 +1411,7 @@ export default function BedMonitoringClient({
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="RHU">
-                                            🏥 RHU Mapandan (Main Facility)
+                                            🏥 RHU {sanitizeLguText("{{LGU_NAME}}")} (Main Facility)
                                         </SelectItem>
                                         {initialCenters.map((c) => (
                                             <SelectItem key={c.id} value={c.id}>
@@ -1597,7 +1599,7 @@ export default function BedMonitoringClient({
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="RHU">
-                                            🏥 RHU Mapandan (Main Facility)
+                                            🏥 RHU {sanitizeLguText("{{LGU_NAME}}")} (Main Facility)
                                         </SelectItem>
                                         {initialCenters.map((c) => (
                                             <SelectItem key={c.id} value={c.id}>

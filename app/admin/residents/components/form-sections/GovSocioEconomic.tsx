@@ -189,7 +189,7 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
           <Input 
             name="employer" 
             defaultValue={data?.employer} 
-            placeholder="e.g. LGU MAPANDAN" 
+            placeholder="e.g. LOCAL GOVERNMENT UNIT"
             className="uppercase font-bold"
           />
         </div>

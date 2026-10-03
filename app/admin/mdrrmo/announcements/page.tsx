@@ -10,7 +10,7 @@ import MDRRMOAnnouncementsClient from "./MDRRMOAnnouncementsClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "MDRRMO Emergency Announcements | Mapandan Admin",
+    title: "MDRRMO Emergency Announcements | LGU Admin",
     description: "Broadcast municipal disaster alerts, weather advisories, ambulance fleet availability, and road rescue notices.",
 };
 

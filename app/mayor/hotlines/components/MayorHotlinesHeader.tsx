@@ -69,7 +69,7 @@ export function MayorHotlinesHeader({
                                 Emergency Hotlines Directory
                             </h1>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Mapandan Executive Oversight & Critical Contacts
+                                E-LGU Executive Oversight & Critical Contacts
                             </p>
                         </div>
                     </div>

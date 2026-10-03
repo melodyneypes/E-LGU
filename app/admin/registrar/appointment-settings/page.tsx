@@ -7,7 +7,7 @@ import prisma from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "Civil Registry Appointment Settings | Mapandan Portal",
+    title: "Civil Registry Appointment Settings | LGU Portal",
     description: "Official administrative configuration for Civil Registry PSA endorsement appointment slot limits and active schedule days.",
 };
 

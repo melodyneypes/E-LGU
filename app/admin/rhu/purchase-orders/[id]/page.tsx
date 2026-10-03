@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getRHUPurchaseOrders } from "../../actions";
 import { useSystemTheme } from "@/components/providers/ThemeProvider";
+import lguConfig from "@/config/lgu.config.json";
 
 function getResidentSnapshot(tx: any): any {
     if (!tx?.residentSnapshot) return {};
@@ -153,13 +154,13 @@ export default function PurchaseOrderDetail() {
 
             doc.setFontSize(16);
             doc.setFont("helvetica", "bold");
-            doc.text("MUNICIPALITY OF MAPANDAN — RHU PHARMACY", 14, 20);
+            doc.text("LOCAL GOVERNMENT UNIT — RHU PHARMACY", 14, 20);
 
             doc.setFontSize(11);
             doc.setFont("helvetica", "normal");
             doc.text(`MEDICINE DISPENSE VOUCHER (#${controlNo})`, 14, 28);
             doc.text(`Patient Name: ${patientName}`, 14, 36);
-            doc.text(`Barangay: ${resident.barangay || "Mapandan"}`, 14, 44);
+            doc.text(`Barangay: ${resident.barangay || "{{BARANGAY_NAME}}"}`, 14, 44);
             doc.text(`Dispensing Pharmacy / Center: ${healthCenterName}`, 14, 52);
             doc.text(`Dispensed By Pharmacist: ${dispenserName}`, 14, 60);
             doc.text(`Date Issued / Dispensed: ${formatFullDateTime(dispenseInfo.dispensedAt || tx.updatedAt)}`, 14, 68);
@@ -251,7 +252,7 @@ export default function PurchaseOrderDetail() {
 
     // Dispensing Pharmacy & Officer Tracking Info
     const dispenserName = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? "RHU Pharmacy Personnel" : "Awaiting Dispensing");
-    const dispenserEmail = dispenseInfo.dispensedByEmail || (isCompleted ? "rhu.pharmacy@mapandan.gov.ph" : null);
+    const dispenserEmail = dispenseInfo.dispensedByEmail || (isCompleted ? lguConfig.seedAccounts.rhuEmail : null);
     const dispenserRole = dispenseInfo.dispensedByRole || "RHU_PHARMACY";
     const dispensedTime = formatFullDateTime(dispenseInfo.dispensedAt || addData.dispensedAt || tx.updatedAt);
 
@@ -318,7 +319,7 @@ export default function PurchaseOrderDetail() {
                                 className="text-[11px] font-extrabold uppercase tracking-widest print:text-slate-600 flex items-center gap-1.5"
                                 style={{ color: themeColor }}
                             >
-                                <Building2 className="w-3.5 h-3.5" /> Municipality of Mapandan • RHU Pharmacy
+                                <Building2 className="w-3.5 h-3.5" /> Local Government Unit • RHU Pharmacy
                             </span>
                             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white print:text-slate-900 mt-0.5">
                                 Prescription Medicine Dispense Slip
@@ -353,7 +354,7 @@ export default function PurchaseOrderDetail() {
                                 <span>For: <strong className="text-slate-200 print:text-slate-800 font-semibold">{resident.relationship || "Self"}</strong></span>
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3 text-slate-400" /> Brgy. {resident.barangay || "Mapandan"}
+                                    <MapPin className="w-3 h-3 text-slate-400" /> Brgy. {resident.barangay || "{{BARANGAY_NAME}}"}
                                 </span>
                             </div>
                             {resident.contactNumber && (

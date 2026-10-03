@@ -7,9 +7,9 @@ import { AnimatePresence } from "framer-motion";
 
 const DEFAULT_SETTINGS = {
     logoUrl: "",
-    brand1: "MAPANDAN",
-    brand2: "PORTAL",
-    themeColor: "#2563eb"
+    brand1: "E-",
+    brand2: "LGU",
+    themeColor: "#0038a8"
 };
 
 export function GlobalLoading() {

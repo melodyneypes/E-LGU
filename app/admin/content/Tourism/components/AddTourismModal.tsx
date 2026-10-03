@@ -116,7 +116,7 @@ export function AddTourismModal() {
                                         defaultValue={editingData?.name || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="e.g. Mapandan River Park"
+                                        placeholder="e.g. {{LGU_NAME}} River Park"
                                     />
                                 </div>
                                 <div>
@@ -158,7 +158,7 @@ export function AddTourismModal() {
                                         defaultValue={editingData?.address || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="Brgy. Poblacion, Mapandan"
+                                        placeholder="Brgy. {{BARANGAY_NAME}}, {{LGU_NAME}}"
                                     />
                                 </div>
                                 <div>
@@ -197,7 +197,7 @@ export function AddTourismModal() {
                                         name="contactNumber"
                                         defaultValue={editingData?.contactNumber || ""}
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="0912 345 6789"
+                                        placeholder="09XX-XXX-XXXX"
                                     />
                                 </div>
                             </div>

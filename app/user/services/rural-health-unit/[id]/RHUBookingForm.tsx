@@ -42,7 +42,7 @@ const AllHealthCentersMap = dynamic(() => import("@/components/shared/AllHealthC
     ssr: false,
     loading: () => (
         <div className="h-[280px] w-full rounded-2xl bg-slate-900 animate-pulse flex items-center justify-center text-xs text-slate-500 font-bold uppercase tracking-widest">
-            Loading Mapandan Health Centers Map...
+            Loading Municipal Health Centers Map...
         </div>
     )
 });
@@ -193,8 +193,8 @@ export function MedicalConsultationForm({
                 houseNumber: resident?.houseNumber || "",
                 street: resident?.street || "",
                 barangay: resident?.barangay || "",
-                municipality: resident?.municipality || "Mapandan",
-                province: resident?.province || "Pangasinan",
+                municipality: resident?.municipality || "Municipality of E-LGU",
+                province: resident?.province || "{{PROVINCE_NAME}}",
                 contactNumber: resident?.contactNumber || "",
                 email: resident?.email || "",
             });
@@ -212,8 +212,8 @@ export function MedicalConsultationForm({
                 houseNumber: "",
                 street: "",
                 barangay: resident?.barangay || "",
-                municipality: "Mapandan",
-                province: "Pangasinan",
+                municipality: "Municipality of E-LGU",
+                province: "{{PROVINCE_NAME}}",
                 contactNumber: resident?.contactNumber || "",
                 email: resident?.email || "",
             });
@@ -285,8 +285,8 @@ export function MedicalConsultationForm({
         houseNumber: resident?.houseNumber || "",
         street: resident?.street || "",
         barangay: resident?.barangay || "",
-        municipality: resident?.municipality || "Mapandan",
-        province: resident?.province || "Pangasinan",
+        municipality: resident?.municipality || "Municipality of E-LGU",
+        province: resident?.province || "{{PROVINCE_NAME}}",
         contactNumber: resident?.contactNumber || "",
         email: resident?.email || "",
     });
@@ -839,7 +839,7 @@ export function MedicalConsultationForm({
                                                     >
                                                         <span className="truncate">
                                                             {selectedCenterId 
-                                                                ? `${availableCenters.find((c: any) => c.id === selectedCenterId)?.name} (${availableCenters.find((c: any) => c.id === selectedCenterId)?.barangay || "Mapandan"})`
+                                                                ? `${availableCenters.find((c: any) => c.id === selectedCenterId)?.name} (${availableCenters.find((c: any) => c.id === selectedCenterId)?.barangay || "{{BARANGAY_NAME}}"})`
                                                                 : "Select Health Center Location"
                                                             }
                                                         </span>
@@ -895,7 +895,7 @@ export function MedicalConsultationForm({
                                                                                 {center?.name}
                                                                             </span>
                                                                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase italic tracking-tight">
-                                                                                📍 {center?.barangay || "Mapandan"} Barangay Station
+                                                                                📍 {center?.barangay || "{{BARANGAY_NAME}}"} Barangay Station
                                                                             </span>
                                                                         </div>
                                                                         {isSelected && (

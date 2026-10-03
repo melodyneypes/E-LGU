@@ -8,8 +8,8 @@ import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "../actions";
 
 export const metadata: Metadata = {
-    title: "RHU – Hospital Bed Monitoring | EMapandan Admin",
-    description: "Monitor real-time bed availability and occupancy across RHU and all health centers in Mapandan. Ensure efficient patient flow and better resource management.",
+    title: "RHU – Hospital Bed Monitoring | E-LGU Admin",
+    description: "Monitor real-time bed availability and occupancy across the RHU and all municipal health centers. Ensure efficient patient flow and better resource management.",
 };
 
 export default async function RHUBedsPage() {

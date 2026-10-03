@@ -1,5 +1,11 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## LGU template configuration
+
+Edit `config/lgu.config.json` to supply the municipality identity, officials, contact details, social links, account emails, barangays, map center, and asset paths. Values marked with `{{...}}` are intentionally unconfigured placeholders. Set the map center and supply the matching `public/lgu-boundary.json` before enabling map features.
+
+Replace the neutral logo and content placeholders with assets supplied and approved by the adopting LGU. This template conversion does not alter live database content; review and migrate existing records before exposing a deployment. The unverified RHU Android package has been removed from the public assets; set `apps.apkDownloadUrl` only after an adopting LGU supplies an approved build. Kiosk source is not included in this repository, so the kiosk must be rebuilt and reviewed separately using the adopting LGU's approved config and assets.
+
 ## Getting Started
 
 First, run the development server:

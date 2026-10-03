@@ -23,7 +23,7 @@ export function HouseholdsPage() {
                         Household Map
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-2xl">
-                        Manage and visualize every household in Mapandan for resource distribution, risk assessment, and census tracking.
+                        Manage and visualize every household in the municipality for resource distribution, risk assessment, and census tracking.
                     </p>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">

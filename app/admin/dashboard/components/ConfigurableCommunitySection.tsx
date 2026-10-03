@@ -38,8 +38,8 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     lgu_projects: { defaultCols: 6, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "emapandan_community_cards_grid_v1";
-const ORDER_STORAGE_KEY = "emapandan_community_cards_order_v1";
+const STORAGE_KEY = "E-LGU_community_cards_grid_v1";
+const ORDER_STORAGE_KEY = "E-LGU_community_cards_order_v1";
 
 export function ConfigurableCommunitySection({
     announcements,

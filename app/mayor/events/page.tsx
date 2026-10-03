@@ -111,7 +111,7 @@ export default async function MayorEventsPage(props: {
                             Municipal Events
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
-                            Official events, festivals, and public activities across Mapandan.
+                            Official events, festivals, and public activities across the municipality.
                         </p>
                     </div>
                 </div>

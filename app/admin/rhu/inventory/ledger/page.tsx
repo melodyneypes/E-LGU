@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "../../actions";
 
 export const metadata = {
-    title: "Medicine Ledger | EMapandan Admin",
+    title: "Medicine Ledger | E-LGU Admin",
     description: "Track all medicine transactions, including purchases, issuances, adjustments, and current stock levels in real time.",
 };
 

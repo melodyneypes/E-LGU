@@ -266,8 +266,8 @@ export default function EngineerDetailPage({ params }: PageProps) {
     const [orPreview, setOrPreview] = useState<string | null>(null);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
     const [branding, setBranding] = useState({
-        word1: "Mapandan",
-        word2: "Express",
+        word1: "E-",
+        word2: "LGU",
         logo: ""
     });
      
@@ -409,13 +409,13 @@ export default function EngineerDetailPage({ params }: PageProps) {
 
         // Fetch branding settings
         Promise.all([
-            getSystemSettingAction("brand_word_1", "Mapandan"),
-            getSystemSettingAction("brand_word_2", "Express"),
+            getSystemSettingAction("brand_word_1", "E-"),
+            getSystemSettingAction("brand_word_2", "LGU"),
             getSystemSettingAction("site_logo", "")
         ]).then(([w1, w2, logo]) => {
             setBranding({
-                word1: w1.data || "Mapandan",
-                word2: w2.data || "Express",
+                word1: w1.data || "E-",
+                word2: w2.data || "LGU",
                 logo: logo.data || ""
             });
         });
@@ -1656,7 +1656,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                 <div className="col-span-12 md:col-span-6 space-y-2">
                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Barangay & Complete Address</label>
                                     <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
-                                        {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Mapandan, Pangasinan` : "--"}
+                                        {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Municipality of E-LGU` : "--"}
                                     </div>
                                 </div>
                             </div>
@@ -2380,9 +2380,9 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                             </div>
                                                         </div>
                                                         <div className="py-4 bg-white/50 dark:bg-slate-950/50 flex flex-wrap items-center justify-center gap-6 text-[10px] text-slate-500 font-medium px-6">
-                                                            <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Based on Mapandan Citizen&apos;s Charter • PD 1096 • RA 11032</span>
+                                                            <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Based on Citizen&apos;s Charter • PD 1096 • RA 11032</span>
                                                             <span className="flex items-center gap-1"><BadgeCheck className="w-3 h-3" /> RA 10173 Data Privacy Act Compliant</span>
-                                                            <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> LGU Mapandan, Pangasinan</span>
+                                                            <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Municipal Government of E-LGU</span>
                                                         </div>
                                                     </DialogContent>
                                                 </Dialog>

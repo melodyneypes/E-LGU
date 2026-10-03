@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { getRHUDashboardStats, getRHUAdminTransactions } from "./actions";
 
 export const metadata: Metadata = {
-    title: "RHU Hub | Mapandan Admin Portal",
+    title: "RHU Hub | LGU Admin Portal",
     description: "Official administrative dashboard for Rural Health Unit (RHU) clinical appointments and check-ups.",
 };
 

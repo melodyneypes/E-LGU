@@ -1228,7 +1228,7 @@ export default function MarriageLicenseApplicationPage() {
 														});
 													}}
 												/>
-												<label htmlFor="app2Resident" className="text-xs font-bold italic text-slate-500 cursor-pointer">Applicant 2 is a resident of Mapandan</label>
+												<label htmlFor="app2Resident" className="text-xs font-bold italic text-slate-500 cursor-pointer">Applicant 2 is a resident of our municipality</label>
 											</div>
 										</div>
 
@@ -1275,7 +1275,7 @@ export default function MarriageLicenseApplicationPage() {
 														<div className="flex items-center gap-3">
 															<div>
 																<p className="text-xs font-black uppercase italic">{form.app2FullName}</p>
-																<p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Mapandan Resident</p>
+																<p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Municipal Resident</p>
 															</div>
 														</div>
 														<Button
@@ -1289,7 +1289,7 @@ export default function MarriageLicenseApplicationPage() {
 													</div>
 												) : (
 													<>
-														<Label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Search Mapandan Records</Label>
+														<Label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Search Municipal Records</Label>
 														<ResidentSearch onSelect={handleApp2Select} placeholder="Search by first or last name..." />
 													</>
 												)}

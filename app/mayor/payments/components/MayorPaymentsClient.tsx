@@ -211,7 +211,7 @@ export function MayorPaymentsClient({
                         Municipal <span style={{ color: themeColor }}>Payments</span>
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
-                        Mapandan Executive Oversight: Monitor municipal revenues and transaction payments.
+                        E-LGU Executive Oversight: Monitor municipal revenues and transaction payments.
                     </p>
                 </div>
             </div>

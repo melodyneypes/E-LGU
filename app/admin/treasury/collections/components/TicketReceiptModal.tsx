@@ -53,7 +53,7 @@ export function TicketReceiptModal() {
                         Official Ticket Receipt
                     </h2>
                     <p className="text-xs text-slate-400 font-medium italic">
-                        Municipality of Mapandan · Treasury Dept
+                        Municipality of E-LGU · Treasury Dept
                     </p>
                 </div>
 

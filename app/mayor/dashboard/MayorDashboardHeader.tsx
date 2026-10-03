@@ -70,7 +70,7 @@ export function MayorDashboardHeader({
                             Office of the Municipal Mayor
                         </h1>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                            Mapandan Executive Control & Oversight Portal
+                            E-LGU Executive Control & Oversight Portal
                         </p>
                     </div>
                 </div>

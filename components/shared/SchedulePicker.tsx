@@ -67,7 +67,7 @@ export default function SchedulePicker({
     setSelectedSlot,
     bookedSlots,
     config,
-    themeColor = "#2563eb"
+    themeColor = "#0038a8"
 }: SchedulePickerProps) {
     const SLOTS = [
         config?.amTimeLabel || "08:00 AM - 11:00 AM",

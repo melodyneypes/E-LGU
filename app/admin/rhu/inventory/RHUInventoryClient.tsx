@@ -158,14 +158,14 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             const cName = (c.name || "").toLowerCase();
             return (
                 (c.accountEmail && c.accountEmail.toLowerCase() === userEmail) ||
-                (userEmail.includes("lalas") && cName.includes("lalas")) ||
-                (userName.includes("lalas") && cName.includes("lalas")) ||
+                (userEmail.includes("{{BARANGAY_NAME}}") && cName.includes("{{BARANGAY_NAME}}")) ||
+                (userName.includes("{{BARANGAY_NAME}}") && cName.includes("{{BARANGAY_NAME}}")) ||
                 (userEmail.includes("main") && cName.includes("main"))
             );
         }) : null
     );
 
-    // Center Admin accounts (e.g. Lalas Medical Clinic) are center scoped and manage inventory in their own center
+    // Center Admin accounts (e.g. {{BARANGAY_NAME}} Medical Clinic) are center scoped and manage inventory in their own center
     const isCenterScopedUser = !!userMatchedCenter;
 
     // Staff and Doctor accounts have read-only access to inventory. Only RHU Pharmacy, RHU Admin, RHU Center Admin, or Pharmacy accounts can edit.
@@ -1231,7 +1231,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                     }
                                 }, 100);
                             }}
-                            healthCenterName={userMatchedCenter?.name || "RHU Mapandan"}
+                            healthCenterName={userMatchedCenter?.name || "RHU {{LGU_NAME}}"}
                             onCollapse={() => setShowSidebar(false)}
                         />
                     </div>

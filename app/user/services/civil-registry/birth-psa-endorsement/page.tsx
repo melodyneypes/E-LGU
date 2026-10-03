@@ -261,7 +261,7 @@ export default function BirthPsaEndorsementPage() {
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
                         r.municipality || "",
-                        r.province || "Pangasinan"
+                        r.province || "{{PROVINCE_NAME}}"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 

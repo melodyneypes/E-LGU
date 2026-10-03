@@ -472,7 +472,7 @@ const IdentityConfirmationVault = ({ resident, additional = {}, isBusinessPermit
                     )}
 
                     <div className="border-t border-white/5 pt-4 flex justify-between items-center">
-                        <span className="text-[8px] font-black uppercase text-slate-600 tracking-[0.2em] italic">EMAPANDAN INTEGRATED DOSSIER SYSTEM</span>
+                        <span className="text-[8px] font-black uppercase text-slate-600 tracking-[0.2em] italic">E-LGU INTEGRATED DOSSIER SYSTEM</span>
                         <p className="text-[9px] font-bold text-slate-600 italic tracking-widest uppercase opacity-40">System Resident Verification Vault</p>
                     </div>
                 </div>

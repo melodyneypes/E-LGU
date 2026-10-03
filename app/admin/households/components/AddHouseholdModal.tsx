@@ -21,6 +21,7 @@ import { Loader2, Home, MapPin, Users, ShieldAlert, UserCheck } from "lucide-rea
 import { HeadSearch } from "../../residents/components/HeadSearch";
 import { getHeadDetails } from "../../actions";
 import LocationPicker from "./LocationPicker";
+import lguConfig from "@/config/lgu.config.json";
 
 export function AddHouseholdModal() {
     const { data: session } = useSession();
@@ -30,7 +31,7 @@ export function AddHouseholdModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, selectedCoords, setSelectedCoords } = useHousehold();
     const { handleSubmit, loading } = useHouseholdForm();
 
-    const barangays = ["Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez", "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"];
+    const barangays = ["{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}"];
     const riskLevels = ["Safe", "Low Risk", "Moderate Risk", "High Risk", "Flood Prone", "Landslide Prone"];
 
     // Form State
@@ -216,8 +217,8 @@ export function AddHouseholdModal() {
                                     {isPickingLocation ? (
                                         <div className="pt-2 animate-in zoom-in-95 duration-300">
                                             <LocationPicker 
-                                                initialLat={parseFloat(lat) || 16.1158}
-                                                initialLng={parseFloat(lng) || 119.7997}
+                                                initialLat={parseFloat(lat) || lguConfig.map.latitude || 0}
+                                                initialLng={parseFloat(lng) || lguConfig.map.longitude || 0}
                                                 onSelect={(selectedLat, selectedLng) => {
                                                     setLat(selectedLat.toString());
                                                     setLng(selectedLng.toString());

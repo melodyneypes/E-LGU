@@ -9,7 +9,7 @@ import DriversClient from "./DriversClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Ambulance Drivers & Duty Monitoring | MDRRMO Mapandan",
+    title: "Ambulance Drivers & Duty Monitoring | MDRRMO",
     description: "Roster management, driver vehicle assignments, license expiry tracking, and real-time on-duty monitoring for ambulance drivers.",
 };
 

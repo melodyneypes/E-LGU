@@ -131,7 +131,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     const isApplicantTheOwner = applicantName.toLowerCase().replace(/\s+/g, "") === ownerName.toLowerCase().replace(/\s+/g, "");
     const tdn = rpt.tdn || additional.tdn || "2026-MAP-1234";
     const pin = rpt.pin || additional.pin || "N/A";
-    const barangay = (rpt.barangay || additional.barangay || "GOLDEN").toUpperCase();
+    const barangay = (rpt.barangay || additional.barangay || "{{BARANGAY_NAME}}").toUpperCase();
 
     // Prior computation snapshot if saved
     const savedComp = (additional?.rptComputation as any) || {};
@@ -190,7 +190,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
         savedComp.paymentReference || transaction?.paymentReference || additional?.paymentReference || ""
     );
 
-    // --- Live Auto-Computation (Rules from Pangasinan Prov. Ord. No. 166-2012 & LGC Sec. 235) ---
+    // --- Live Auto-Computation (Rules from {{PROVINCE_NAME}} Prov. Ord. No. 166-2012 & LGC Sec. 235) ---
     const computation = useMemo(() => {
         const av = rawAssessedValue;
         // Basic RPT is 1% of Assessed Value
@@ -204,9 +204,9 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
         // Discount calculation
         let discRate = 0;
         if (discountType === "ADVANCE_ANNUAL_20") {
-            discRate = 0.20; // 20% per Pangasinan Prov. Ord. 166-2012
+            discRate = 0.20; // 20% per {{PROVINCE_NAME}} Prov. Ord. 166-2012
         } else if (discountType === "PROMPT_QUARTERLY_10") {
-            discRate = 0.10; // 10% per Pangasinan Prov. Ord. 166-2012
+            discRate = 0.10; // 10% per {{PROVINCE_NAME}} Prov. Ord. 166-2012
         } else if (discountType === "OTHER") {
             discRate = Math.min(0.20, Math.max(0, (customDiscountPercent || 0) / 100));
         }

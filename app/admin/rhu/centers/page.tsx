@@ -4,10 +4,11 @@ import { getRHUHealthCenters, getRHUMedicalPersonnel } from "./actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "../actions";
+import lguConfig from "@/config/lgu.config.json";
 
 export const metadata = {
     title: "Health Centers & Stations | RHU Admin",
-    description: "Manage health centers, sub-stations, medical personnel, and services across Mapandan"
+    description: "Manage health centers, sub-stations, medical personnel, and services across {{LGU_NAME}}"
 };
 
 export default async function RHUCentersPage() {
@@ -22,8 +23,8 @@ export default async function RHUCentersPage() {
     const isGlobalAdmin = (userRole === "ADMIN" || userRole === "RHU_ADMIN") &&
         !userDept.includes("medical staff") &&
         !userDept.includes("doctor") &&
-        userEmail !== "kenneth@mapandan.gov.ph" &&
-        userEmail !== "dr.al@mapandan.gov.ph";
+        userEmail !== lguConfig.seedAccounts.rhuMedicalStaffEmail.toLowerCase() &&
+        userEmail !== lguConfig.seedAccounts.rhuDoctorEmail.toLowerCase();
 
     const [matchedCenter, centersRes, personnelRes] = await Promise.all([
         currentUser ? getMatchedCenterForUser(currentUser) : Promise.resolve(null),

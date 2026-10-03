@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 
 
 export const metadata: Metadata = {
-    title: "BPLO Permit Portal | Mapandan Portal",
+    title: "BPLO Permit Portal | {{LGU_NAME}} Portal",
     description: "Official administrative dashboard for Business Permits, Inspections, and Licensing services.",
 };
 

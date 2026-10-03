@@ -37,7 +37,7 @@ export default async function RoadClosuresAdminPage() {
                                 Road Closures & Traffic Advisories
                             </h1>
                             <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                                Real-time road status management for the Municipality of Mapandan, Pangasinan.
+                                Real-time road status management for the Municipality of E-LGU.
                             </p>
                         </div>
                     </div>

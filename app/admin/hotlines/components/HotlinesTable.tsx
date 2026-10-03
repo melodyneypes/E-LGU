@@ -228,7 +228,7 @@ export function HotlinesTable() {
                                     <TableCell>
                                         <div className="flex items-center text-slate-600 dark:text-slate-300 text-xs font-bold gap-1">
                                             <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                            <span className="line-clamp-1 max-w-[240px]">{item.address || "Main Office, Mapandan"}</span>
+                                            <span className="line-clamp-1 max-w-[240px]">{item.address || "Main Office, Municipality of E-LGU"}</span>
                                         </div>
                                     </TableCell>
 

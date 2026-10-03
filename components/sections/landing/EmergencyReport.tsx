@@ -22,9 +22,10 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import MapandanMapWrapper from "@/components/maps/MapandanMapWrapper";
+import LguMapWrapper from "@/components/maps/LguMapWrapper";
 import { copyToClipboard as safeCopyToClipboard, cn } from "@/lib/utils";
 import { getAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
+import lguConfig from "@/config/lgu.config.json";
 
 import { ReportForm } from "./ReportForm";
 
@@ -52,34 +53,11 @@ interface InitialDispatchHotline {
     number: string;
 }
 
-const defaultFleet: InitialAmbulance[] = [
-    {
-        unit: "Ambulance Unit 1 (Foton Transporter)",
-        plateNumber: "SAB-1234",
-        station: "Poblacion Main Station",
-        status: "ACTIVE",
-        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-    },
-    {
-        unit: "Ambulance Unit 2 (Toyota Hiace)",
-        plateNumber: "SAB-5678",
-        station: "Luyan South Station",
-        status: "ACTIVE",
-        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-    },
-    {
-        unit: "Ambulance Unit 3 (Barangay Response)",
-        plateNumber: "SAB-9012",
-        station: "Nilombot Station",
-        status: "ACTIVE",
-        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-    }
-];
-
 const defaultDispatchHotlines: InitialDispatchHotline[] = [
-    { name: "RHU Emergency Dispatch", number: "0917-555-0199" },
-    { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234" },
-    { name: "Municipal Health Officer", number: "0920-123-4567" }
+    { name: "Police Emergency Hotline", number: lguConfig.contact.hotlines.police },
+    { name: "Fire Emergency Hotline", number: lguConfig.contact.hotlines.fire },
+    { name: "Health Emergency Hotline", number: lguConfig.contact.hotlines.health },
+    { name: "Disaster Response Hotline", number: lguConfig.contact.hotlines.disasterResponse }
 ];
 
 export function EmergencyReport({ 
@@ -88,7 +66,7 @@ export function EmergencyReport({
     initialDispatchHotlines = [],
     showMap = true, 
     isMaintenanceActive = false,
-    themeColor = "var(--primary-theme, #2563eb)"
+    themeColor = "var(--primary-theme, #0038a8)"
 }: { 
     initialHotlines?: InitialHotline[];
     initialFleet?: InitialAmbulance[];
@@ -99,9 +77,9 @@ export function EmergencyReport({
 }) {
     const [copied, setCopied] = React.useState<string | null>(null);
     const [copiedDispatch, setCopiedDispatch] = React.useState<string | null>(null);
-    const resolvedTheme = themeColor || "var(--primary-theme, #2563eb)";
+    const resolvedTheme = themeColor || "var(--primary-theme, #0038a8)";
     const [fleet, setFleet] = React.useState<InitialAmbulance[]>(
-        (initialFleet.length > 0 ? initialFleet : defaultFleet).filter(v => v.status !== "INACTIVE")
+        initialFleet.filter(v => v.status !== "INACTIVE")
     );
     const [dispatchHotlines, setDispatchHotlines] = React.useState<InitialDispatchHotline[]>(
         (initialDispatchHotlines.length > 0 ? initialDispatchHotlines : defaultDispatchHotlines).filter(h => (h as any).status !== "INACTIVE")
@@ -183,10 +161,10 @@ export function EmergencyReport({
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-                        {/* Mapandan Border Map (Left Side) */}
+                        {/* E-LGU Spatial GIS & Hazard Map (Left Side) */}
                         {isMobile ? (
                             <div className="rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative bg-[#050505]">
-                                <MapandanMapWrapper />
+                                <LguMapWrapper />
                             </div>
                         ) : (
                             <motion.div 
@@ -195,7 +173,7 @@ export function EmergencyReport({
                                 viewport={{ once: true }}
                                 className="rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative bg-[#050505]"
                             >
-                                <MapandanMapWrapper />
+                                <LguMapWrapper />
                             </motion.div>
                         )}
 
@@ -271,7 +249,7 @@ export function EmergencyReport({
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-base md:text-lg font-black tracking-tighter text-slate-900 dark:text-white">{primaryNumber}</p>
                                                     {copied === primaryNumber && (
-                                                        <span className="text-[9px] md:text-[10px] font-bold text-emerald-500 italic animate-in fade-in zoom-in">Copied!</span>
+                                                        <span className="text-[9px] md:text-[10px] font-bold text-cyan-400 italic animate-in fade-in zoom-in">Copied!</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -302,7 +280,7 @@ export function EmergencyReport({
                                                     
                                                     {hotline.mobileNumber && (
                                                         <div className="flex items-center gap-2">
-                                                            <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+                                                            <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
                                                             <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Mobile: {hotline.mobileNumber}</span>
                                                         </div>
                                                     )}
@@ -409,19 +387,19 @@ export function EmergencyReport({
                                 </h3>
                             </div>
                             <p className="text-xs sm:text-sm font-medium italic text-slate-500 dark:text-slate-400 max-w-xl">
-                                Real-time readiness monitoring for Mapandan Rural Health Unit ambulances and rapid emergency response teams.
+                                Real-time readiness monitoring for Municipal Rural Health Unit ambulances and rapid emergency response teams.
                             </p>
                         </div>
 
                         {/* Mobile description text */}
                         <p className="block md:hidden text-xs font-medium italic text-slate-500 dark:text-slate-400 max-w-xl">
-                            Real-time readiness monitoring for Mapandan Rural Health Unit ambulances and rapid emergency response teams.
+                            Real-time readiness monitoring for Municipal Rural Health Unit ambulances and rapid emergency response teams.
                         </p>
 
                         {/* Summary Badges & Link */}
                         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
-                            <span className="inline-flex items-center gap-1.5 text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="inline-flex items-center gap-1.5 text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-[0_0_12px_rgba(0,210,255,0.2)] px-3 py-1.5 rounded-xl">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(0,210,255,0.8)]" />
                                 {activeCount} Active
                             </span>
                             <Link
@@ -489,7 +467,7 @@ export function EmergencyReport({
                                             "text-[9px] font-black uppercase tracking-widest border px-3 py-1 rounded-full",
                                             vehicle.status === "INACTIVE"
                                                 ? "text-slate-600 dark:text-slate-400 bg-slate-500/10 border-slate-500/20"
-                                                : "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                                : "text-cyan-400 bg-cyan-500/10 border-cyan-500/30 font-bold"
                                         )}>
                                             {vehicle.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
                                         </span>
@@ -533,7 +511,7 @@ export function EmergencyReport({
                                                 className={cn(
                                                     "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
                                                     isCopied 
-                                                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" 
+                                                        ? "bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-400/30"
                                                         : ""
                                                 )}
                                                 style={!isCopied ? {
@@ -552,7 +530,7 @@ export function EmergencyReport({
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     <span className="text-xs sm:text-sm font-black tracking-tight text-slate-800 dark:text-slate-100">{hotline.number}</span>
                                                     {isCopied && (
-                                                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-500 italic animate-pulse">Dialing...</span>
+                                                        <span className="text-[8px] font-bold text-cyan-400 italic animate-pulse">Dialing...</span>
                                                     )}
                                                 </div>
                                             </div>

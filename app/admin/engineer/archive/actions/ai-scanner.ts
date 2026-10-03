@@ -65,7 +65,7 @@ export async function scanBuildingPermitDocument({
         const ai = new GoogleGenAI({ apiKey });
 
         const promptGuidance = `
-You are analyzing an official Philippine Building Permit document (NBC Form No. B - 01B / National Building Code of the Philippines issued by the Office of the Building Official, Municipality of Mapandan, Province of Pangasinan).
+You are analyzing an official Philippine Building Permit document (NBC Form No. B - 01B / National Building Code of the Philippines issued by the Office of the Building Official, Municipality of E-LGU).
 Extract the following fields accurately based on the standard layout of NBC Form No. B - 01B:
 
 1. Permit Identification & Control Numbers:
@@ -86,7 +86,7 @@ Extract the following fields accurately based on the standard layout of NBC Form
    - blkNo: Block number (labeled as "BLK NO.").
    - tctNo: Transfer Certificate of Title number (labeled as "TCT NO.").
    - street: Street name or Sitio (labeled as "STREET" or "BARRIO / SITIO").
-   - barangay: Exact Barangay in Mapandan (One of: Amanoaoac, Apaya, Aserda, Baloling, Coral, Golden, Jimenez, Lambayan, Loubing, Nilombot, Pias, Poblacion, Primicias, Santa Maria, Torres). If the scan shows e.g. "Brgy. Torres" or "TORRES", extract just "Torres".
+   - barangay: Exact Barangay in the Municipality (One of: {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, Loubing, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}). If the scan shows e.g. "Brgy. {{BARANGAY_NAME}}" or "{{BARANGAY_NAME}}", extract just "{{BARANGAY_NAME}}".
 
 4. Character of Occupancy & Scope of Work:
    - occupancyGroup: Occupancy group code, e.g. "GROUP A" (Residential Dwellings), "GROUP B", "GROUP E", etc.

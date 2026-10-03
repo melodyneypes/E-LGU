@@ -264,7 +264,7 @@ export async function getArchivedRegistrarRecords(params?: {
 
             // Event Details
             const eventDate = rawAddData.dateOfBirth || rawAddData.dateOfDeath || rawAddData.dateOfMarriage || "";
-            const eventPlace = rawAddData.placeOfBirth || rawAddData.placeOfDeath || rawAddData.placeOfMarriage || "Mapandan, Pangasinan";
+            const eventPlace = rawAddData.placeOfBirth || rawAddData.placeOfDeath || rawAddData.placeOfMarriage || "Municipality of E-LGU";
 
             // Collect scanned document attachments
             const scannedDocs: Array<{ label: string; url: string; fileName?: string }> = [];
@@ -397,20 +397,20 @@ export async function createArchivedRegistrarRecord(formData: FormData) {
         const childName = (formData.get("childName") as string)?.trim() || "";
         const sex = (formData.get("sex") as string)?.trim() || "MALE";
         const dateOfBirth = (formData.get("dateOfBirth") as string)?.trim() || "";
-        const placeOfBirth = (formData.get("placeOfBirth") as string)?.trim() || "Mapandan, Pangasinan";
+        const placeOfBirth = (formData.get("placeOfBirth") as string)?.trim() || "Municipality of E-LGU";
         const fatherName = (formData.get("fatherName") as string)?.trim() || "";
         const motherMaidenName = (formData.get("motherMaidenName") as string)?.trim() || "";
 
         const deceasedName = (formData.get("deceasedName") as string)?.trim() || "";
         const dateOfDeath = (formData.get("dateOfDeath") as string)?.trim() || "";
-        const placeOfDeath = (formData.get("placeOfDeath") as string)?.trim() || "Mapandan, Pangasinan";
+        const placeOfDeath = (formData.get("placeOfDeath") as string)?.trim() || "Municipality of E-LGU";
         const ageAtDeath = (formData.get("ageAtDeath") as string)?.trim() || "";
         const causeOfDeath = (formData.get("causeOfDeath") as string)?.trim() || "";
 
         const husbandName = (formData.get("husbandName") as string)?.trim() || "";
         const wifeName = (formData.get("wifeName") as string)?.trim() || "";
         const dateOfMarriage = (formData.get("dateOfMarriage") as string)?.trim() || "";
-        const placeOfMarriage = (formData.get("placeOfMarriage") as string)?.trim() || "Mapandan, Pangasinan";
+        const placeOfMarriage = (formData.get("placeOfMarriage") as string)?.trim() || "Municipality of E-LGU";
         const solemnizingOfficer = (formData.get("solemnizingOfficer") as string)?.trim() || "";
 
         const remarks = (formData.get("remarks") as string)?.trim() || "";
@@ -563,7 +563,7 @@ export async function createArchivedRegistrarRecord(formData: FormData) {
                 residentSnapshot: {
                     firstName: subjectFullName.split(" ")[0] || subjectFullName,
                     lastName: subjectFullName.split(" ").slice(1).join(" ") || "",
-                    barangay: "Mapandan",
+                    barangay: "{{BARANGAY_NAME}}",
                     contactNumber: ""
                 },
                 additionalData: additionalDataPayload
@@ -583,7 +583,7 @@ export async function createArchivedRegistrarRecord(formData: FormData) {
                         registryNumber: registryNo,
                         subjectName: childName || subjectFullName,
                         dateOfEvent: parsedBirthDate,
-                        placeOfEvent: placeOfBirth || "Mapandan, Pangasinan",
+                        placeOfEvent: placeOfBirth || "Municipality of E-LGU",
                         fatherName: fatherName || null,
                         motherName: motherMaidenName || null,
                         issuedBy: user?.name || "Civil Registrar Staff"
@@ -600,7 +600,7 @@ export async function createArchivedRegistrarRecord(formData: FormData) {
                         registryNumber: registryNo,
                         subjectName: deceasedName || subjectFullName,
                         dateOfEvent: parsedDeathDate,
-                        placeOfEvent: placeOfDeath || "Mapandan, Pangasinan",
+                        placeOfEvent: placeOfDeath || "Municipality of E-LGU",
                         documentUrl: primaryDocumentUrl,
                         issuedBy: user?.name || "Civil Registrar Staff"
                     }
@@ -678,20 +678,20 @@ export async function updateArchivedRegistrarRecord(transactionId: string, formD
         const childName = (formData.get("childName") as string)?.trim() || "";
         const sex = (formData.get("sex") as string)?.trim() || "MALE";
         const dateOfBirth = (formData.get("dateOfBirth") as string)?.trim() || "";
-        const placeOfBirth = (formData.get("placeOfBirth") as string)?.trim() || "Mapandan, Pangasinan";
+        const placeOfBirth = (formData.get("placeOfBirth") as string)?.trim() || "Municipality of E-LGU";
         const fatherName = (formData.get("fatherName") as string)?.trim() || "";
         const motherMaidenName = (formData.get("motherMaidenName") as string)?.trim() || "";
 
         const deceasedName = (formData.get("deceasedName") as string)?.trim() || "";
         const dateOfDeath = (formData.get("dateOfDeath") as string)?.trim() || "";
-        const placeOfDeath = (formData.get("placeOfDeath") as string)?.trim() || "Mapandan, Pangasinan";
+        const placeOfDeath = (formData.get("placeOfDeath") as string)?.trim() || "Municipality of E-LGU";
         const ageAtDeath = (formData.get("ageAtDeath") as string)?.trim() || "";
         const causeOfDeath = (formData.get("causeOfDeath") as string)?.trim() || "";
 
         const husbandName = (formData.get("husbandName") as string)?.trim() || "";
         const wifeName = (formData.get("wifeName") as string)?.trim() || "";
         const dateOfMarriage = (formData.get("dateOfMarriage") as string)?.trim() || "";
-        const placeOfMarriage = (formData.get("placeOfMarriage") as string)?.trim() || "Mapandan, Pangasinan";
+        const placeOfMarriage = (formData.get("placeOfMarriage") as string)?.trim() || "Municipality of E-LGU";
         const solemnizingOfficer = (formData.get("solemnizingOfficer") as string)?.trim() || "";
 
         const remarks = (formData.get("remarks") as string)?.trim() || "";
@@ -865,7 +865,7 @@ export async function updateArchivedRegistrarRecord(transactionId: string, formD
                 residentSnapshot: {
                     firstName: subjectFullName.split(" ")[0] || subjectFullName,
                     lastName: subjectFullName.split(" ").slice(1).join(" ") || "",
-                    barangay: "Mapandan",
+                    barangay: "{{BARANGAY_NAME}}",
                     contactNumber: ""
                 },
                 additionalData: updatedAdditionalData
@@ -885,7 +885,7 @@ export async function updateArchivedRegistrarRecord(transactionId: string, formD
                         registryNumber: registryNo,
                         subjectName: childName || subjectFullName,
                         dateOfEvent: parsedBirthDate,
-                        placeOfEvent: placeOfBirth || "Mapandan, Pangasinan",
+                        placeOfEvent: placeOfBirth || "Municipality of E-LGU",
                         fatherName: fatherName || null,
                         motherName: motherMaidenName || null
                     },
@@ -894,7 +894,7 @@ export async function updateArchivedRegistrarRecord(transactionId: string, formD
                         registryNumber: registryNo,
                         subjectName: childName || subjectFullName,
                         dateOfEvent: parsedBirthDate,
-                        placeOfEvent: placeOfBirth || "Mapandan, Pangasinan",
+                        placeOfEvent: placeOfBirth || "Municipality of E-LGU",
                         fatherName: fatherName || null,
                         motherName: motherMaidenName || null,
                         issuedBy: user?.name || "Civil Registrar Staff"
@@ -911,7 +911,7 @@ export async function updateArchivedRegistrarRecord(transactionId: string, formD
                         registryNumber: registryNo,
                         subjectName: deceasedName || subjectFullName,
                         dateOfEvent: parsedDeathDate,
-                        placeOfEvent: placeOfDeath || "Mapandan, Pangasinan",
+                        placeOfEvent: placeOfDeath || "Municipality of E-LGU",
                         documentUrl: primaryDocumentUrl
                     },
                     create: {
@@ -919,7 +919,7 @@ export async function updateArchivedRegistrarRecord(transactionId: string, formD
                         registryNumber: registryNo,
                         subjectName: deceasedName || subjectFullName,
                         dateOfEvent: parsedDeathDate,
-                        placeOfEvent: placeOfDeath || "Mapandan, Pangasinan",
+                        placeOfEvent: placeOfDeath || "Municipality of E-LGU",
                         documentUrl: primaryDocumentUrl,
                         issuedBy: user?.name || "Civil Registrar Staff"
                     }
@@ -1090,7 +1090,7 @@ export async function syncHistoricalRegistrarArchives() {
                             registryNumber: registryNo,
                             subjectName: childName,
                             dateOfEvent: parsedDate,
-                            placeOfEvent: addData.placeOfBirth || "Mapandan, Pangasinan",
+                            placeOfEvent: addData.placeOfBirth || "Municipality of E-LGU",
                             fatherName: addData.fatherName || null,
                             motherName: addData.motherMaidenName || addData.motherName || null,
                             issuedBy: user?.name || "Civil Registrar Staff"
@@ -1114,7 +1114,7 @@ export async function syncHistoricalRegistrarArchives() {
                             registryNumber: registryNo,
                             subjectName: deceasedName,
                             dateOfEvent: parsedDate,
-                            placeOfEvent: addData.placeOfDeath || "Mapandan, Pangasinan",
+                            placeOfEvent: addData.placeOfDeath || "Municipality of E-LGU",
                             documentUrl: addData.primaryDocumentUrl || record.eCopyUrl || null,
                             issuedBy: user?.name || "Civil Registrar Staff"
                         }

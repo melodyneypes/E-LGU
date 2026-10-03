@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import React, { useState, useTransition } from "react";
 import {
@@ -46,6 +48,7 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import {
@@ -64,27 +67,13 @@ const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
     ssr: false,
     loading: () => (
         <div className="h-[220px] w-full rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse flex items-center justify-center text-xs text-slate-400 font-bold">
-            Loading Mapandan Map...
+            Loading {sanitizeLguText("{{LGU_NAME}}")} Map...
         </div>
     )
 });
 
-const MAPANDAN_BARANGAYS = [
-    "Poblacion",
-    "Coral",
-    "Torres",
-    "Lupa",
-    "Amansagan",
-    "Aserda",
-    "Baloling",
-    "Golden",
-    "Nilombot",
-    "Pias",
-    "Primicias",
-    "Santa Maria",
-    "Nilombot East",
-    "Nilombot West"
-];
+const configuredBarangays = lguConfig.barangays.filter((name) => !name.includes("{{"));
+const defaultBarangay = configuredBarangays[0] || "";
 
 export const STANDARD_HEALTH_SERVICES = [
     "General Consultation",
@@ -111,7 +100,7 @@ export const PRESET_ROLES = [
 function formatPHPhoneNumber(value: string): string {
     const clean = value.replace(/\D/g, "");
     if (clean.startsWith("09")) {
-        // Mobile format: 0917-123-4567
+        // Mobile number placeholder format.
         const digits = clean.slice(0, 11);
         if (digits.length <= 4) return digits;
         if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
@@ -312,9 +301,9 @@ export default function RHUCentersClient({
         name: "",
         code: "",
         location: "",
-        latitude: 16.0250,
-        longitude: 120.4450,
-        barangay: "Poblacion",
+        latitude: lguConfig.map.latitude ?? 0,
+        longitude: lguConfig.map.longitude ?? 0,
+        barangay: defaultBarangay,
         contactNumber: "",
         operatingHours: "Mon-Fri 8:00 AM - 5:00 PM",
         headPersonnel: "",
@@ -405,7 +394,7 @@ export default function RHUCentersClient({
                     (p.accountEmail && currentUser.email && String(p.accountEmail).toLowerCase() === String(currentUser.email).toLowerCase()) ||
                     (currentUser.assignedDoctorId && p.userId && String(p.userId) === String(currentUser.assignedDoctorId))
                 )) ||
-                (currentUser.email && String(currentUser.email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
+                (currentUser.email && String(currentUser.email).toLowerCase().includes("{{BARANGAY_NAME}}") && String(c.name).toLowerCase().includes("{{BARANGAY_NAME}}")) ||
                 (currentUser.email && String(currentUser.email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
             );
             if (activeMatchedCenter) {
@@ -480,9 +469,9 @@ export default function RHUCentersClient({
             name: "",
             code: "",
             location: "",
-            latitude: 16.0250,
-            longitude: 120.4450,
-            barangay: "Poblacion",
+            latitude: lguConfig.map.latitude ?? 0,
+            longitude: lguConfig.map.longitude ?? 0,
+            barangay: defaultBarangay,
             contactNumber: "",
             operatingHours: "Mon-Fri 8:00 AM - 5:00 PM",
             headPersonnel: "",
@@ -506,9 +495,9 @@ export default function RHUCentersClient({
             name: center.name || "",
             code: center.code || "",
             location: center.location || "",
-            latitude: center.latitude || 16.0250,
-            longitude: center.longitude || 120.4450,
-            barangay: center.barangay || "Poblacion",
+            latitude: center.latitude || lguConfig.map.latitude || 0,
+            longitude: center.longitude || lguConfig.map.longitude || 0,
+            barangay: center.barangay || defaultBarangay,
             contactNumber: center.contactNumber || "",
             operatingHours: center.operatingHours || "Mon-Fri 8:00 AM - 5:00 PM",
             headPersonnel: center.headPersonnel || "",
@@ -626,13 +615,13 @@ export default function RHUCentersClient({
             if (data && data.address) {
                 const addr = data.address;
                 const fullText = JSON.stringify(addr).toLowerCase() + " " + (data.display_name || "").toLowerCase();
-                const matchedBarangay = MAPANDAN_BARANGAYS.find(b => fullText.includes(b.toLowerCase()));
+                const matchedBarangay = configuredBarangays.find(b => fullText.includes(b.toLowerCase()));
                 const buildingName = addr.amenity || addr.building || addr.hospital || addr.clinic || "";
                 const road = addr.road || addr.street || addr.neighbourhood || "";
                 const formattedLocation = [
                     buildingName || road,
                     matchedBarangay ? `Barangay ${matchedBarangay}` : "",
-                    "Mapandan, Pangasinan"
+                    "{{LGU_NAME}}, {{PROVINCE_NAME}}"
                 ].filter(Boolean).join(", ");
 
                 setFormData(prev => ({
@@ -659,7 +648,7 @@ export default function RHUCentersClient({
         const query = formData.name.trim();
         toast.info(`Searching building terrain for: "${query}"...`);
         try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${query}, Mapandan, Pangasinan`)}&format=json&limit=1`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${query}, {{LGU_NAME}}, {{PROVINCE_NAME}}`)}&format=json&limit=1`);
             const data = await res.json();
             if (data && data.length > 0) {
                 const targetLat = parseFloat(data[0].lat);
@@ -1275,7 +1264,7 @@ export default function RHUCentersClient({
                                                     {myCenter.name}
                                                 </h2>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                                    Barangay {myCenter.barangay || "Mapandan"}
+                                                    Barangay {myCenter.barangay || "{{LGU_NAME}}"}
                                                 </p>
                                             </div>
                                             <span className="px-2.5 py-1 text-[10px] font-black uppercase rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
@@ -1610,7 +1599,7 @@ export default function RHUCentersClient({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="ALL">All Barangays</SelectItem>
-                                            {MAPANDAN_BARANGAYS.map(b => (
+                                            {configuredBarangays.map(b => (
                                                 <SelectItem key={b} value={b}>{b}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -2099,7 +2088,7 @@ export default function RHUCentersClient({
                         <DialogDescription className="text-xs">
                             {editingCenter
                                 ? "Update health center details, head personnel, and operating hours."
-                                : "Register a new health center or barangay health station in Mapandan."}
+                                : "Register a new health center or barangay health station in {{LGU_NAME}}."}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -2124,7 +2113,7 @@ export default function RHUCentersClient({
                                     </div>
                                     <Input
                                         type="text"
-                                        placeholder="e.g., Mapandan Main RHU or Coral Health Station"
+                                        placeholder="e.g., {{LGU_NAME}} Main RHU or {{BARANGAY_NAME}} Health Station"
                                         value={formData.name}
                                         onChange={(e) => {
                                             setFormData({ ...formData, name: e.target.value });
@@ -2145,7 +2134,7 @@ export default function RHUCentersClient({
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Center Code</Label>
                                         <Input
                                             type="text"
-                                            placeholder="e.g., BHS-CORAL"
+                                            placeholder="e.g., BHS-{{BARANGAY_NAME}}"
                                             value={formData.code}
                                             onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                                             className="h-10 text-xs rounded-xl"
@@ -2155,14 +2144,14 @@ export default function RHUCentersClient({
                                     <div className="space-y-1.5">
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Barangay</Label>
                                         <Select
-                                            value={formData.barangay || "Poblacion"}
+                                            value={formData.barangay || defaultBarangay}
                                             onValueChange={(val) => setFormData({ ...formData, barangay: val })}
                                         >
                                             <SelectTrigger className="h-10 text-xs rounded-xl">
                                                 <SelectValue placeholder="Select Barangay" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {MAPANDAN_BARANGAYS.map(b => (
+                                                {configuredBarangays.map(b => (
                                                     <SelectItem key={b} value={b}>{b}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -2188,7 +2177,7 @@ export default function RHUCentersClient({
                                     </div>
                                     <Input
                                         type="text"
-                                        placeholder="e.g., Barangay Hall Complex, Coral, Mapandan, Pangasinan"
+                                        placeholder="e.g., Barangay Hall Complex, {{BARANGAY_NAME}}, {{LGU_NAME}}, {{PROVINCE_NAME}}"
                                         value={formData.location}
                                         onChange={(e) => {
                                             setFormData({ ...formData, location: e.target.value });
@@ -2220,7 +2209,7 @@ export default function RHUCentersClient({
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Hotline</Label>
                                         <Input
                                             type="text"
-                                            placeholder="e.g., 0917-123-4567 or 075-555-0102"
+                                            placeholder="e.g., 09XX-XXX-XXXX"
                                             value={formData.contactNumber}
                                             onChange={(e) => {
                                                 setFormData({ ...formData, contactNumber: formatPHPhoneNumber(e.target.value) });
@@ -2378,7 +2367,7 @@ export default function RHUCentersClient({
                                             </Label>
                                             <Input
                                                 type="email"
-                                                placeholder="e.g. lalas.medical.clinic@mapandan.gov.ph"
+                                                placeholder={lguConfig.seedAccounts.rhuEmail}
                                                 value={formData.accountEmail || ""}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, accountEmail: e.target.value }))}
                                                 className="h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
@@ -2432,7 +2421,7 @@ export default function RHUCentersClient({
                             <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                        <MapPin className="w-4 h-4 text-rose-500" /> Pin Location (Mapandan)
+                                        <MapPin className="w-4 h-4 text-rose-500" /> Pin Location ({sanitizeLguText("{{LGU_NAME}}")})
                                     </Label>
                                     {formData.latitude && formData.longitude && (
                                         <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
@@ -2443,13 +2432,13 @@ export default function RHUCentersClient({
 
                                 <div className="h-[360px] w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative z-0 shadow-inner">
                                     <LocationPicker
-                                        lat={formData.latitude || 16.0250}
-                                        lng={formData.longitude || 120.4450}
+                                        lat={formData.latitude || lguConfig.map.latitude || 0}
+                                        lng={formData.longitude || lguConfig.map.longitude || 0}
                                         onChange={(lat, lng) => handleMapLocationSelect(lat, lng)}
                                     />
                                 </div>
                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium italic">
-                                    📍 Click anywhere on the map terrain to pin the exact position in Mapandan.
+                                    📍 Click anywhere on the map terrain to pin the exact position in {sanitizeLguText("{{LGU_NAME}}")}.
                                 </p>
                             </div>
                         </div>
@@ -2485,7 +2474,7 @@ export default function RHUCentersClient({
                             {editingPersonnel ? "Edit Medical Personnel Assignment" : "Assign Medical Personnel"}
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Assign Doctors, Nurses, Midwives, or Dentists to a specific Mapandan health center and designate their health services.
+                            Assign Doctors, Nurses, Midwives, or Dentists to a specific {sanitizeLguText("{{LGU_NAME}}")} health center and designate their health services.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -2693,7 +2682,7 @@ export default function RHUCentersClient({
                                             <div className="flex flex-col gap-1">
                                                 <Input
                                                     type="text"
-                                                    placeholder="Phone (e.g. 0917-123-4567)"
+                                                    placeholder="Phone (e.g. 09XX-XXX-XXXX)"
                                                     value={personnelData.contactNumber}
                                                     onChange={(e) => {
                                                         setPersonnelData({ ...personnelData, contactNumber: formatPHPhoneNumber(e.target.value) });
@@ -2768,7 +2757,7 @@ export default function RHUCentersClient({
                                         <input type="password" name="dummy_password" style={{ display: 'none' }} tabIndex={-1} />
                                         <Input
                                             type="email"
-                                            placeholder="Staff Login Email (dr.emil@mapandan.gov.ph)"
+                                            placeholder={lguConfig.seedAccounts.rhuMedicalStaffEmail}
                                             value={personnelData.accountEmail || ""}
                                             onChange={(e) => setPersonnelData({ ...personnelData, accountEmail: e.target.value })}
                                             className="h-10 text-xs rounded-xl"
@@ -2968,5 +2957,3 @@ export default function RHUCentersClient({
         </div>
     );
 }
-
-

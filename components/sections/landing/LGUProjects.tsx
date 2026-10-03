@@ -91,6 +91,7 @@ function ProjectCard({ project, idx, isMobile }: { project: Project; idx: number
                     fill
                     loading="lazy"
                     onLoad={() => setIsImageLoading(false)}
+                    onError={() => setIsImageLoading(false)}
                     className={cn(
                         "object-cover transition-all duration-700",
                         isImageLoading ? 'opacity-0 blur-sm scale-110' : 'opacity-100 blur-0 scale-100',
@@ -103,7 +104,7 @@ function ProjectCard({ project, idx, isMobile }: { project: Project; idx: number
                     <span className={cn(
                         "px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest backdrop-blur-md border shadow-lg",
                         project.status === "Completed" 
-                            ? "bg-emerald-500/90 text-white border-emerald-400/30"
+                            ? "bg-cyan-400 text-slate-950 font-bold border-cyan-300 shadow-[0_0_15px_rgba(0,210,255,0.4)]"
                             : "bg-primary/90 text-white border-white/20"
                     )}>
                         {project.status}

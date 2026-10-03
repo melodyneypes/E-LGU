@@ -27,7 +27,7 @@ export default async function CaptainPaymentsPage(props: {
         redirect("/auth/login");
     }
 
-    const managedBarangay = user?.managedBarangay || "Apaya";
+    const managedBarangay = user?.managedBarangay || "{{BARANGAY_NAME}}";
     const params = await props.searchParams;
 
     const defaultFromDate = new Date();

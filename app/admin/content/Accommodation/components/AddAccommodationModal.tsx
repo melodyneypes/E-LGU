@@ -160,7 +160,7 @@ export function AddAccommodationModal() {
                                         defaultValue={editingData?.address || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="Brgy. Coral, Mapandan"
+                                        placeholder="Brgy. {{BARANGAY_NAME}}, {{LGU_NAME}}"
                                     />
                                 </div>
                                 <div>
@@ -187,7 +187,7 @@ export function AddAccommodationModal() {
                                         name="contactNumber"
                                         defaultValue={editingData?.contactNumber || ""}
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="0912 345 6789"
+                                        placeholder="09XX-XXX-XXXX"
                                     />
                                 </div>
                                 <div>

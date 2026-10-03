@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Map as MapIcon, Compass, ExternalLink, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TourismSpot } from "@prisma/client";
+import lguConfig from "@/config/lgu.config.json";
 
 interface PlacesToVisitProps {
     spots?: TourismSpot[];
@@ -122,11 +123,12 @@ function GalleryCard({ spot, isActive, activeIndex, isMobile, onClick }: Gallery
                 <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
             </div>
             <Image
-                src={spot.imageUrl || "/place_to_visits/umbrella_rocks.png"}
+                src={spot.imageUrl || lguConfig.assets.contentPlaceholder}
                 alt={spot.name}
                 fill
                 loading="lazy"
                 onLoad={() => setIsImageLoading(false)}
+                onError={() => setIsImageLoading(false)}
                 className={cn(
                     "object-cover transition-all duration-1000",
                     isActive ? "scale-105" : "scale-110",

@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import React, { useState, useMemo } from "react";
 import {
@@ -95,7 +97,7 @@ export default function ShortageReportClient({
                 const isCritical = !isOutOfStock && i.quantity <= Math.ceil(i.reorderLevel / 2);
                 const status = isOutOfStock ? "Out of Stock" : (isCritical ? "Critical" : "Low Stock");
                 const cat = i.genericName || "Pharmaceutical";
-                const facility = i.healthCenterName || "RHU Mapandan";
+                const facility = i.healthCenterName || "RHU {{LGU_NAME}}";
 
                 // Resolve earliest expiration date across item & batches (FEFO)
                 const expDates: Date[] = [];
@@ -392,7 +394,7 @@ export default function ShortageReportClient({
             m.reorderLevel,
             m.shortageStatus,
             m.expirationDisplay || "N/A",
-            `"${(m.facilityDisplay || "RHU Mapandan").replace(/"/g, '""')}"`
+            `"${(m.facilityDisplay || "RHU {{LGU_NAME}}").replace(/"/g, '""')}"`
         ]);
 
         const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
@@ -487,7 +489,7 @@ export default function ShortageReportClient({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="ALL">All Facilities</SelectItem>
-                                            <SelectItem value="RHU Mapandan">RHU Mapandan</SelectItem>
+                                            <SelectItem value="RHU {{LGU_NAME}}">RHU {sanitizeLguText("{{LGU_NAME}}")}</SelectItem>
                                             <SelectItem value="RHU Sta. Monica">RHU Sta. Monica</SelectItem>
                                             <SelectItem value="Health Center San Isidro">Health Center San Isidro</SelectItem>
                                             <SelectItem value="RHU Sta. Fe">RHU Sta. Fe</SelectItem>
@@ -1054,7 +1056,7 @@ export default function ShortageReportClient({
                                 else if (filter === "OUT_OF_STOCK") setStatusFilter("Out of Stock");
                                 else if (filter === "LOW_STOCK") setStatusFilter("Low Stock");
                             }}
-                            healthCenterName={matchedCenter?.name || "RHU Mapandan"}
+                            healthCenterName={matchedCenter?.name || "RHU {{LGU_NAME}}"}
                             onCollapse={() => setIsSidebarCollapsed(true)}
                         />
                     </div>

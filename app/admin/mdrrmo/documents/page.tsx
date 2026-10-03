@@ -9,7 +9,7 @@ import DocumentsClient from "./DocumentsClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Ambulance OR/CR & Papers Filing | MDRRMO Mapandan",
+    title: "Ambulance OR/CR & Papers Filing | MDRRMO",
     description: "Digital filing system for ambulance Official Receipts (OR), Certificates of Registration (CR), vehicle insurance, and emission test certificates.",
 };
 

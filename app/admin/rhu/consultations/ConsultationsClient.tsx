@@ -596,7 +596,7 @@ export default function ConsultationsClient() {
                                                         {patientName}
                                                     </span>
                                                     <span className="text-[10px] font-bold text-slate-400 italic">
-                                                        {addData.relationship ? `For: ${addData.relationship}` : "Self"} • Brgy. {resident.barangay || "Mapandan"}
+                                                        {addData.relationship ? `For: ${addData.relationship}` : "Self"} • Brgy. {resident.barangay || "{{LGU_NAME}}"}
                                                     </span>
                                                 </div>
                                             </TableCell>

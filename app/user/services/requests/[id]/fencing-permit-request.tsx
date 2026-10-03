@@ -35,9 +35,9 @@ interface FencingPermitRequestDetailsProps {
 
 export function FencingPermitRequestDetails({ additionalData }: FencingPermitRequestDetailsProps) {
   const loc = additionalData.fencingLocation || {};
-  const barangay = loc.barangay || additionalData.barangay || "Mapandan";
+  const barangay = loc.barangay || additionalData.barangay || "{{BARANGAY_NAME}}";
   const street = loc.street || additionalData.street || "";
-  const projectAddress = additionalData.projectAddress || `${street ? street + ", " : ""}Brgy. ${barangay}, Mapandan, Pangasinan`;
+  const projectAddress = additionalData.projectAddress || `${street ? street + ", " : ""}Brgy. ${barangay}, Municipality of E-LGU`;
 
   return (
     <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5 animate-in fade-in duration-300">
@@ -76,7 +76,7 @@ export function FencingPermitRequestDetails({ additionalData }: FencingPermitReq
               </div>
               <div>
                 <p className="text-[8px] font-semibold uppercase text-slate-400">Municipality / Province</p>
-                <p className="text-xs md:text-sm font-bold uppercase text-slate-700 dark:text-slate-300">Mapandan, Pangasinan</p>
+                <p className="text-xs md:text-sm font-bold uppercase text-slate-700 dark:text-slate-300">Municipality of E-LGU</p>
               </div>
               <div>
                 <p className="text-[8px] font-semibold uppercase text-slate-400">Security Add-on</p>

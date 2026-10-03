@@ -31,7 +31,7 @@ export default async function CaptainSingleDirectivePage(props: {
         redirect("/auth/login");
     }
 
-    const managedBarangay = user?.managedBarangay || "Apaya";
+    const managedBarangay = user?.managedBarangay || "{{BARANGAY_NAME}}";
     const { id } = await props.params;
 
     const res = await getCaptainDirectiveById(id);

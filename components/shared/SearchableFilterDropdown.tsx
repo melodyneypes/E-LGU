@@ -26,7 +26,7 @@ export function SearchableFilterDropdown({
     value,
     options = [],
     onChange,
-    themeColor = "var(--primary-theme, #2563eb)",
+    themeColor = "var(--primary-theme, #0038a8)",
     placeholder = "Search...",
     triggerPlaceholder,
     className,

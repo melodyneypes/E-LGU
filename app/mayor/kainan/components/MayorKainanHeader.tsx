@@ -69,7 +69,7 @@ export function MayorKainanHeader({
                                 Kainan & Culinary Hub
                             </h1>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Mapandan Executive Oversight & Food Directory
+                                E-LGU Executive Oversight & Food Directory
                             </p>
                         </div>
                     </div>

@@ -1,0 +1,117 @@
+{
+  "identity": {
+    "name": "{{LGU_NAME}}",
+    "fullName": "{{LGU_FULL_NAME}}",
+    "province": "{{PROVINCE_NAME}}",
+    "region": "{{REGION_NAME}}",
+    "brandName": "E-LGU",
+    "brandWord1": "E-",
+    "brandWord2": "LGU",
+    "tagline": "{{LGU_TAGLINE}}",
+    "demonym": "{{LGU_DEMONYM}}",
+    "website": "{{LGU_WEBSITE_URL}}"
+  },
+  "theme": {
+    "primary": "#0038a8"
+  },
+  "officials": {
+    "mayor": "{{MAYOR_NAME}}",
+    "viceMayor": "{{VICE_MAYOR_NAME}}",
+    "dataPrivacyOfficer": "{{DATA_PRIVACY_OFFICER}}"
+  },
+  "contact": {
+    "address": "{{MUNICIPAL_ADDRESS}}",
+    "email": "{{LGU_EMAIL}}",
+    "phone": "{{LGU_PHONE}}",
+    "fax": "{{LGU_FAX}}",
+    "officeHours": "{{OFFICE_HOURS}}",
+    "hotlines": {
+      "police": "{{POLICE_HOTLINE}}",
+      "fire": "{{FIRE_HOTLINE}}",
+      "health": "{{HEALTH_HOTLINE}}",
+      "healthOfficer": "{{HEALTH_OFFICER_HOTLINE}}",
+      "disasterResponse": "{{DISASTER_RESPONSE_HOTLINE}}"
+    }
+  },
+  "social": {
+    "facebook": "{{LGU_FACEBOOK_URL}}",
+    "twitter": "{{LGU_TWITTER_URL}}",
+    "instagram": "{{LGU_INSTAGRAM_URL}}",
+    "youtube": "{{LGU_YOUTUBE_URL}}",
+    "posoFacebook": "{{POSO_FACEBOOK_URL}}"
+  },
+  "apps": {
+    "googlePlayUrl": "{{GOOGLE_PLAY_URL}}",
+    "appStoreUrl": "{{APP_STORE_URL}}",
+    "apkDownloadUrl": "{{LGU_APP_APK_URL}}"
+  },
+  "payments": {
+    "gcashAccountName": "{{GCASH_ACCOUNT_NAME}}",
+    "gcashAccountNumber": "{{GCASH_ACCOUNT_NUMBER}}",
+    "bankName": "{{BANK_NAME}}",
+    "bankAccountName": "{{BANK_ACCOUNT_NAME}}",
+    "bankAccountNumber": "{{BANK_ACCOUNT_NUMBER}}"
+  },
+  "poso": {
+    "address": "{{POSO_ADDRESS}}",
+    "hotline": "{{POSO_HOTLINE}}",
+    "officeHours": "{{POSO_OFFICE_HOURS}}",
+    "email": "{{POSO_EMAIL}}"
+  },
+  "about": {
+    "history": "{{LGU_HISTORY}}",
+    "mission": "{{LGU_MISSION}}",
+    "vision": "{{LGU_VISION}}",
+    "coreValues": "{{LGU_CORE_VALUES}}",
+    "geographyOrDemographics": "{{LGU_GEOGRAPHY_OR_DEMOGRAPHICS}}",
+    "mayorMessage": "{{MAYOR_MESSAGE}}"
+  },
+  "healthcare": {
+    "referralHospital": "{{REFERRAL_HOSPITAL_NAME}}"
+  },
+  "seedAccounts": {
+    "adminEmail": "{{ADMIN_EMAIL}}",
+    "bploEmail": "{{BPLO_EMAIL}}",
+    "treasuryEmail": "{{TREASURY_EMAIL}}",
+    "adminAideEmail": "{{ADMIN_AIDE_EMAIL}}",
+    "riderEmail": "{{RIDER_EMAIL}}",
+    "rhuEmail": "{{RHU_EMAIL}}",
+    "mainRhuEmail": "{{MAIN_RHU_EMAIL}}",
+    "rhuMedicalStaffEmail": "{{RHU_MEDICAL_STAFF_EMAIL}}",
+    "rhuDoctorEmail": "{{RHU_DOCTOR_EMAIL}}",
+    "assessorEmail": "{{ASSESSOR_EMAIL}}",
+    "disasterResponseEmail": "{{DISASTER_RESPONSE_EMAIL}}",
+    "residentEmail": "{{RESIDENT_EMAIL}}",
+    "marketVendor1Email": "{{MARKET_VENDOR_1_EMAIL}}",
+    "marketVendor2Email": "{{MARKET_VENDOR_2_EMAIL}}",
+    "marketVendor3Email": "{{MARKET_VENDOR_3_EMAIL}}",
+    "marketVendor4Email": "{{MARKET_VENDOR_4_EMAIL}}",
+    "marketCollectorEmail": "{{MARKET_COLLECTOR_EMAIL}}"
+  },
+  "seedNames": {
+    "marketVendor1": "{{MARKET_VENDOR_1_NAME}}",
+    "marketVendor2": "{{MARKET_VENDOR_2_NAME}}",
+    "marketVendor3": "{{MARKET_VENDOR_3_NAME}}",
+    "marketVendor4": "{{MARKET_VENDOR_4_NAME}}",
+    "marketCollector": "{{MARKET_COLLECTOR_NAME}}"
+  },
+  "integrations": {
+    "supabaseImageHostname": "{{SUPABASE_PROJECT_REF}}.supabase.co"
+  },
+  "barangays": [
+    "{{BARANGAY_NAME}}"
+  ],
+  "map": {
+    "latitude": null,
+    "longitude": null,
+    "boundaryFile": "/lgu-boundary.json"
+  },
+  "assets": {
+    "logo": "/images/lgu-placeholder.svg",
+    "favicon": "/images/lgu-placeholder.svg",
+    "heroImage": "/images/lgu-placeholder.svg",
+    "reportLogo": "/images/lgu-placeholder-report.png",
+    "contentPlaceholder": "/images/local-content-placeholder.svg",
+    "officialPortrait": "/images/lgu-placeholder.svg"
+  }
+}

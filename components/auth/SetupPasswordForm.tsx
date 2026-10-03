@@ -33,7 +33,7 @@ interface SetupPasswordFormProps {
     themeColor?: string;
 }
 
-export function SetupPasswordForm({ email, token, themeColor = "#2563eb" }: SetupPasswordFormProps) {
+export function SetupPasswordForm({ email, token, themeColor = "#0038a8" }: SetupPasswordFormProps) {
     const [isSuccess, setIsSuccess] = React.useState(false);
     const [showPassword, setShowPassword] = React.useState(false);
     const [isPasswordFocused, setIsPasswordFocused] = React.useState(false);
@@ -115,7 +115,7 @@ export function SetupPasswordForm({ email, token, themeColor = "#2563eb" }: Setu
                     Reset Password
                 </h1>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Please choose a strong password to secure your MAPANDAN Municipal account.
+                    Please choose a strong password to secure your E-LGU Municipal account.
                 </p>
             </div>
 

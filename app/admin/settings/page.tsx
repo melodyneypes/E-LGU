@@ -6,6 +6,7 @@ import { Suspense } from "react";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import lguConfig from "@/config/lgu.config.json";
 
 export default async function SettingsPage() {
     const session = await getServerSession(authOptions);
@@ -45,16 +46,25 @@ export default async function SettingsPage() {
         section_government: "true",
         section_services: "true",
         section_emergency: "true",
-        social_facebook: "#",
-        social_twitter: "#",
-        social_instagram: "#",
-        contact_address: "Municipal Hall, Poblacion",
-        contact_email: "info@portal.gov.ph",
-        contact_phone: "(075) 000-0000",
+        social_facebook: lguConfig.social.facebook,
+        social_twitter: lguConfig.social.twitter,
+        social_instagram: lguConfig.social.instagram,
+        contact_address: lguConfig.contact.address,
+        contact_email: lguConfig.contact.email,
+        contact_phone: lguConfig.contact.phone,
     };
 
     // Merge with defaults for any missing settings
-    const finalSettings = { ...defaultSectionSettings, ...settings };
+    const finalSettings = {
+        ...defaultSectionSettings,
+        ...settings,
+        social_facebook: lguConfig.social.facebook,
+        social_twitter: lguConfig.social.twitter,
+        social_instagram: lguConfig.social.instagram,
+        contact_address: lguConfig.contact.address,
+        contact_email: lguConfig.contact.email,
+        contact_phone: lguConfig.contact.phone,
+    };
 
     return (
         <div className="p-8">

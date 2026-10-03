@@ -75,7 +75,7 @@ export function AddBarangayModal({
                         
                         <div className="space-y-2">
                             <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Barangay Name <span className="text-red-500">*</span></label>
-                            <Input name="name" defaultValue={editingItem?.name} required placeholder="e.g. Patar, Aloleng, San Miguel" className="text-lg font-bold h-12 rounded-xl" />
+                            <Input name="name" defaultValue={editingItem?.name} required placeholder="Enter barangay name" className="text-lg font-bold h-12 rounded-xl" />
                         </div>
                     </form>
                 </div>

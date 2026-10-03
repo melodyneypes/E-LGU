@@ -100,7 +100,7 @@ export function AddDiningModal() {
                                     <Label htmlFor="name" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
                                         Dining Name <span className="text-red-500">*</span>
                                     </Label>
-                                    <Input id="name" name="name" defaultValue={editingData?.name || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="e.g. Mapandan Seafood Restaurant" />
+                                    <Input id="name" name="name" defaultValue={editingData?.name || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="e.g. {{LGU_NAME}} Seafood Restaurant" />
                                 </div>
                                 <div>
                                     <Label htmlFor="cuisineType" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
@@ -124,7 +124,7 @@ export function AddDiningModal() {
                                     <Label htmlFor="address" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
                                         Location / Complete Address <span className="text-red-500">*</span>
                                     </Label>
-                                    <Input id="address" name="address" defaultValue={editingData?.address || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Brgy. Poblacion, Mapandan" />
+                                    <Input id="address" name="address" defaultValue={editingData?.address || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Brgy. {{BARANGAY_NAME}}, {{LGU_NAME}}" />
                                 </div>
                                 <div>
                                     <Label htmlFor="googleMapsUrl" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
@@ -140,7 +140,7 @@ export function AddDiningModal() {
                                     <Label htmlFor="contactNumber" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
                                         Contact Number
                                     </Label>
-                                    <Input id="contactNumber" name="contactNumber" defaultValue={editingData?.contactNumber || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="0912 345 6789" />
+                                    <Input id="contactNumber" name="contactNumber" defaultValue={editingData?.contactNumber || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="09XX-XXX-XXXX" />
                                 </div>
                                 <div>
                                     <Label htmlFor="facebookUrl" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
@@ -162,7 +162,7 @@ export function AddDiningModal() {
                                     <Label htmlFor="barangay" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
                                         Barangay Location
                                     </Label>
-                                    <Input id="barangay" name="barangay" defaultValue={editingData?.barangay || currentBarangay || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Poblacion" />
+                                    <Input id="barangay" name="barangay" defaultValue={editingData?.barangay || currentBarangay || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="{{BARANGAY_NAME}}" />
                                 </div>
                             </div>
 

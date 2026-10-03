@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "BFP Hub | Mapandan Portal",
+    title: "BFP Hub | {{LGU_NAME}} Portal",
     description: "Official administrative dashboard for BFP evaluation and processing.",
 };
 

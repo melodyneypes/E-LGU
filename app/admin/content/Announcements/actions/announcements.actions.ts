@@ -55,7 +55,7 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
 async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ allowed: boolean; error?: string }> {
     const userEmail = (user.email || "").toLowerCase();
     const matchedCenter = await getMatchedCenterForUser(user);
-    const isGlobalManager = (user.role === "ADMIN" || user.role === "RHU_ADMIN" || user.role === "CONTENT_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
+    const isGlobalManager = (user.role === "ADMIN" || user.role === "RHU_ADMIN" || user.role === "CONTENT_ADMIN") && !matchedCenter && !userEmail.includes("{{BARANGAY_NAME}}") && !userEmail.includes("main");
 
     if (user.role === "RHU_STAFF") {
         return {

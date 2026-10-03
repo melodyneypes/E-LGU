@@ -54,7 +54,7 @@ export default function NotFound() {
             {/* Footer watermark */}
             <div className="absolute bottom-6 left-0 right-0 text-center">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">
-                    EMapandan LGU Portal
+                    E-LGU Smart Portal
                 </p>
             </div>
         </div>

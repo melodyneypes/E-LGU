@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "Engineer Hub | Mapandan Portal",
+    title: "Engineer Hub | LGU Portal",
     description: "Official administrative dashboard for building permit evaluation and processing.",
 };
 

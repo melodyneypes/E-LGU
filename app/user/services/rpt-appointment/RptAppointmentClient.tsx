@@ -52,9 +52,9 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 ];
 
 const DEFAULT_BARANGAYS = [
-    "Abalos", "Amis", "Amanperez", "Apaya", "Calaocan",
-    "Coral", "Golden", "Jimenez", "Nilombot", "Poblacion",
-    "Primicias", "Santa Barbara", "Torres", "Luyan"
+    "Abalos", "Amis", "Amanperez", "{{BARANGAY_NAME}}", "Calaocan",
+    "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}",
+    "{{BARANGAY_NAME}}", "Santa Barbara", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}"
 ];
 
 const PROPERTY_CLASSIFICATIONS = [
@@ -648,7 +648,7 @@ export function RptAppointmentClient({
                                                         Property Address / Location <span className="text-red-500">*</span>
                                                     </Label>
                                                     <Input
-                                                        placeholder="Lot / Block No., Street, Sitio, Mapandan"
+                                                        placeholder="Lot / Block No., Street, Sitio, Municipality of E-LGU"
                                                         value={propertyAddress}
                                                         onChange={(e) => {
                                                             setPropertyAddress(e.target.value);

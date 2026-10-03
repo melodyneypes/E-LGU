@@ -226,7 +226,7 @@ export default function ZoningAppointmentClient({
 
             {/* Bottom Info */}
             <div className="max-w-3xl mx-auto text-center space-y-2 opacity-40">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] italic">Mapandan Municipal Portal • Zoning Department</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] italic">E-LGU Municipal Portal • Zoning Department</p>
                 <div className="h-0.5 w-12 bg-slate-300 dark:bg-white/10 mx-auto rounded-full" />
             </div>
         </div>

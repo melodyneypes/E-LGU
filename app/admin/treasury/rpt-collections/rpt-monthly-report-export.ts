@@ -372,12 +372,12 @@ export async function exportRptMonthlyReportPdf(
     doc.setFont("helvetica", "normal");
     doc.text("Municipality/City of", metaX, 8);
     doc.setFont("helvetica", "bold");
-    doc.text("Mapandan", metaX + 32, 8);
+    doc.text("Municipality of E-LGU", metaX + 32, 8);
 
     doc.setFont("helvetica", "normal");
     doc.text("Province of", metaX, 11.5);
     doc.setFont("helvetica", "bold");
-    doc.text("PANGASINAN", metaX + 32, 11.5);
+    doc.text("{{PROVINCE_NAME}}", metaX + 32, 11.5);
 
     doc.setFont("helvetica", "normal");
     doc.text("For the Period of", metaX, 15);
@@ -623,7 +623,7 @@ export async function exportRptMonthlyReportExcel(
     const { rows, totalRow, disposition } = buildBlgfReportData(payments);
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Treasury Department - Municipality of Mapandan";
+    workbook.creator = "Treasury Department - Municipality of E-LGU";
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet("BLGF Form 2-A", {
@@ -654,11 +654,11 @@ export async function exportRptMonthlyReportExcel(
     }
 
     sheet.getCell("K2").value = "Municipality/City of:";
-    sheet.getCell("M2").value = "Mapandan";
+    sheet.getCell("M2").value = "Municipality of E-LGU";
     sheet.getCell("M2").font = { bold: true };
 
     sheet.getCell("K3").value = "Province of:";
-    sheet.getCell("M3").value = "PANGASINAN";
+    sheet.getCell("M3").value = "{{PROVINCE_NAME}}";
     sheet.getCell("M3").font = { bold: true };
 
     sheet.getCell("K4").value = "For the Period of:";

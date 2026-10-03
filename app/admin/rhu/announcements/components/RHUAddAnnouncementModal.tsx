@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import { useAnnouncements } from "@/app/admin/content/Announcements/providers/AnnouncementProvider";
 import { useAnnouncementForm } from "@/app/admin/content/Announcements/hooks/useAnnouncementForm";
@@ -249,7 +251,7 @@ export function RHUAddAnnouncementModal() {
                                         <Tag className="w-2.5 h-2.5" />
                                         Health & RHU
                                     </div>
-                                    <span className="text-slate-500">RHU Mapandan</span>
+                                    <span className="text-slate-500">RHU {sanitizeLguText("{{LGU_NAME}}")}</span>
                                 </div>
                             </div>
                         </div>

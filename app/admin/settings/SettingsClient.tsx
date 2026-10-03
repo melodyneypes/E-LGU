@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,21 +41,21 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
 
     const [maintenanceMode, setMaintenanceMode] = useState(settings.maintenance_mode === "true");
     const [kioskMaintenanceMode, setKioskMaintenanceMode] = useState(settings.kiosk_maintenance_mode === "true");
-    const [logoUrl, setLogoUrl] = useState(settings.site_logo || "");
-    const [portalName, setPortalName] = useState(settings.portal_name || "");
-    const [emergencyPhone, setEmergencyPhone] = useState(settings.emergency_phone || "");
-    const [brandWord1, setBrandWord1] = useState(settings.brand_word_1 || "E");
-    const [brandWord2, setBrandWord2] = useState(settings.brand_word_2 || "");
-    const [themeColor, setThemeColor] = useState(settings.theme_color || "#2563eb");
-    const [googlePlayUrl, setGooglePlayUrl] = useState(settings.app_google_play_url || "");
-    const [appStoreUrl, setAppStoreUrl] = useState(settings.app_app_store_url || "");
-    const [apkDownloadUrl, setApkDownloadUrl] = useState(settings.app_apk_download_url || "");
-    const [facebookUrl, setFacebookUrl] = useState(settings.social_facebook || "#");
-    const [twitterUrl, setTwitterUrl] = useState(settings.social_twitter || "#");
-    const [instagramUrl, setInstagramUrl] = useState(settings.social_instagram || "#");
-    const [contactAddress, setContactAddress] = useState(settings.contact_address || "Municipal Hall, Poblacion");
-    const [contactEmail, setContactEmail] = useState(settings.contact_email || "info@portal.gov.ph");
-    const [contactPhone, setContactPhone] = useState(settings.contact_phone || "(075) 000-0000");
+    const [logoUrl, setLogoUrl] = useState(settings.site_logo || lguConfig.assets.logo);
+    const [portalName, setPortalName] = useState(settings.portal_name || lguConfig.identity.name);
+    const [emergencyPhone, setEmergencyPhone] = useState(settings.emergency_phone || lguConfig.contact.hotlines.disasterResponse);
+    const [brandWord1, setBrandWord1] = useState(settings.brand_word_1 || lguConfig.identity.brandWord1);
+    const [brandWord2, setBrandWord2] = useState(settings.brand_word_2 || lguConfig.identity.brandWord2);
+    const [themeColor, setThemeColor] = useState(settings.theme_color || lguConfig.theme.primary);
+    const [googlePlayUrl, setGooglePlayUrl] = useState(settings.app_google_play_url || lguConfig.apps.googlePlayUrl);
+    const [appStoreUrl, setAppStoreUrl] = useState(settings.app_app_store_url || lguConfig.apps.appStoreUrl);
+    const [apkDownloadUrl, setApkDownloadUrl] = useState(settings.app_apk_download_url || lguConfig.apps.apkDownloadUrl);
+    const [facebookUrl, setFacebookUrl] = useState(settings.social_facebook || lguConfig.social.facebook);
+    const [twitterUrl, setTwitterUrl] = useState(settings.social_twitter || lguConfig.social.twitter);
+    const [instagramUrl, setInstagramUrl] = useState(settings.social_instagram || lguConfig.social.instagram);
+    const [contactAddress, setContactAddress] = useState(settings.contact_address || lguConfig.contact.address);
+    const [contactEmail, setContactEmail] = useState(settings.contact_email || lguConfig.contact.email);
+    const [contactPhone, setContactPhone] = useState(settings.contact_phone || lguConfig.contact.phone);
     const [isSaving, setIsSaving] = useState(false);
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -128,13 +129,13 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
             if (instagramUrl !== (settings.social_instagram || "#")) {
                 settingsToUpdate.push({ key: "social_instagram", value: instagramUrl });
             }
-            if (contactAddress !== (settings.contact_address || "Municipal Hall, Poblacion")) {
+            if (contactAddress !== (settings.contact_address || "Municipal Hall, {{BARANGAY_NAME}}")) {
                 settingsToUpdate.push({ key: "contact_address", value: contactAddress });
             }
-            if (contactEmail !== (settings.contact_email || "info@portal.gov.ph")) {
+            if (contactEmail !== (settings.contact_email || lguConfig.contact.email)) {
                 settingsToUpdate.push({ key: "contact_email", value: contactEmail });
             }
-            if (contactPhone !== (settings.contact_phone || "(075) 000-0000")) {
+            if (contactPhone !== (settings.contact_phone || lguConfig.contact.phone)) {
                 settingsToUpdate.push({ key: "contact_phone", value: contactPhone });
             }
 
@@ -422,7 +423,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                                     <Input
                                                         value={brandWord2}
                                                         onChange={(e) => setBrandWord2(e.target.value)}
-                                                        placeholder="Mapandan"
+                                                        placeholder="LGU"
                                                         className="rounded-xl"
                                                     />
                                                 </div>
@@ -492,7 +493,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                                         <Input
                                                             value={apkDownloadUrl}
                                                             onChange={(e) => setApkDownloadUrl(e.target.value)}
-                                                            placeholder="/downloads/emapandan.apk"
+                                                            placeholder="/downloads/lgu-rhu-app.apk"
                                                             className="rounded-xl font-mono text-xs"
                                                         />
                                                     </div>
@@ -556,7 +557,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                                         <Input
                                                             value={contactAddress}
                                                             onChange={(e) => setContactAddress(e.target.value)}
-                                                            placeholder="Municipal Hall, Poblacion"
+                                                            placeholder={lguConfig.contact.address}
                                                             className="rounded-xl text-xs"
                                                         />
                                                     </div>
@@ -565,7 +566,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                                         <Input
                                                             value={contactEmail}
                                                             onChange={(e) => setContactEmail(e.target.value)}
-                                                            placeholder="info@portal.gov.ph"
+                                                            placeholder={lguConfig.contact.email}
                                                             className="rounded-xl text-xs"
                                                         />
                                                     </div>
@@ -574,7 +575,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                                         <Input
                                                             value={contactPhone}
                                                             onChange={(e) => setContactPhone(e.target.value)}
-                                                            placeholder="(075) 000-0000"
+                                                            placeholder={lguConfig.contact.phone}
                                                             className="rounded-xl text-xs"
                                                         />
                                                     </div>
@@ -1024,7 +1025,7 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
                                     <div className="md:col-span-3 space-y-2">
                                         <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Headline</Label>
                                         <Input
-                                            placeholder="e.g. Welcome to Mapandan"
+                                            placeholder="e.g. Welcome to E-LGU"
                                             value={formData.title}
                                             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                             className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] font-black px-6 text-lg text-slate-900 dark:text-white"

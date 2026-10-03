@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -99,24 +100,7 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
 
-const MAPANDAN_BARANGAYS = [
-    "Amanoaoac",
-    "Apaya",
-    "Aserda",
-    "Baloling",
-    "Coral",
-    "Golden",
-    "Lanas",
-    "Nilombot",
-    "Patland",
-    "Pias",
-    "Poblacion",
-    "Primicias",
-    "Santa Maria",
-    "Torres",
-    "Valenzuela"
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 const LINE_OF_BUSINESS_OPTIONS = [
     "Agriculture & Forestry",
     "Manufacturing",
@@ -256,7 +240,7 @@ export default function BusinessPermitWizardPage() {
         notFound();
     }
     const router = useRouter();
-    const { hydrateDraft, hydrateDraftFiles, persistDraft, persistDraftFile, clearDraft } = useDraft<FormState>("emapandan_bp_draft");
+    const { hydrateDraft, hydrateDraftFiles, persistDraft, persistDraftFile, clearDraft } = useDraft<FormState>("E-LGU_bp_draft");
     const contactInputRef = useRef<HTMLInputElement>(null);
 
     const [currentStep, setCurrentStep] = useState<Step>("PATHWAY");
@@ -1174,7 +1158,7 @@ export default function BusinessPermitWizardPage() {
                 <div className="space-y-4">
                     <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">Portal Suspended</h1>
                     <div className="max-w-xl mx-auto p-6 bg-red-500/5 dark:bg-red-500/10 rounded-3xl border border-red-500/30 text-slate-600 dark:text-slate-300 font-bold text-sm leading-relaxed italic">
-                        &quot;Your account has been suspended from submitting online applications due to acquiring 3 rejection strikes on your permit filings. To comply, please apply onsite directly at the Business Permit Department inside the Mapandan Municipal Hall.&quot;
+                        &quot;Your account has been suspended from submitting online applications due to acquiring 3 rejection strikes on your permit filings. To comply, please apply onsite directly at the Business Permit Department inside the Municipal Hall.&quot;
                     </div>
                 </div>
                 <div className="pt-6">
@@ -1311,7 +1295,7 @@ export default function BusinessPermitWizardPage() {
                                             const matchedType = bpTypes.find((t: any) => t.code === opt.code);
                                             const label = matchedType?.name || (opt.id === "NEW" ? "New Business Permit" : "Permit Renewal");
                                             const desc = matchedType?.description || (opt.id === "NEW"
-                                                ? "For newly registered businesses in Mapandan. Based on initial declared capitalization investment."
+                                                ? "For newly registered businesses in the municipality. Based on initial declared capitalization investment."
                                                 : "For existing businesses renewing for the current year. Calculated on previous annual gross receipts/sales.");
 
                                             const Icon = opt.icon;
@@ -1571,7 +1555,7 @@ export default function BusinessPermitWizardPage() {
                                                     type="text"
                                                     value={formData.businessName}
                                                     onChange={e => handleInputChange("businessName", e.target.value)}
-                                                    placeholder="e.g. Mapandan Express Café Inc."
+                                                    placeholder="e.g. Metro Express Café Inc."
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
@@ -1589,7 +1573,7 @@ export default function BusinessPermitWizardPage() {
                                                     type="text"
                                                     value={formData.tradeName}
                                                     onChange={e => handleInputChange("tradeName", e.target.value)}
-                                                    placeholder="e.g. Mapandan Express Café"
+                                                    placeholder="e.g. Metro Express Café"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
@@ -1639,7 +1623,7 @@ export default function BusinessPermitWizardPage() {
                                                     )}
                                                 >
                                                     <option value="" disabled className="dark:bg-[#0c0d12] text-slate-400">Select Barangay...</option>
-                                                    {(dbBarangays.length > 0 ? dbBarangays : MAPANDAN_BARANGAYS).map((b) => (
+                                                    {(dbBarangays.length > 0 ? dbBarangays : LGU_BARANGAYS).map((b) => (
                                                         <option key={b} value={b} className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">{b}</option>
                                                     ))}
                                                 </select>
@@ -2395,7 +2379,7 @@ export default function BusinessPermitWizardPage() {
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">Data Privacy and Terms Agreement</p>
                                                         <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                                                            I officially accept the EMapandan Data Privacy Agreement & Terms. I declare under penalty of perjury that all submitted details are 100% legal and genuine. Click to review agreement.
+                                                            I officially accept the E-LGU Data Privacy Agreement & Terms. I declare under penalty of perjury that all submitted details are 100% legal and genuine. Click to review agreement.
                                                         </p>
                                                     </div>
                                                 </div>

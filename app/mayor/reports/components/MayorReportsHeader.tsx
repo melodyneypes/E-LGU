@@ -25,7 +25,7 @@ export function MayorReportsHeader({
     activeBarangays,
     selectedBarangay,
     title = "Public Incident Reports",
-    subtitle = "Mapandan Executive Oversight & Community Reports",
+    subtitle = "E-LGU Executive Oversight & Community Reports",
     badge,
     iconName = "flag",
     hideBarangaySwitcher = false,

@@ -93,7 +93,7 @@ export async function submitFencingPermit(formData: FormData) {
     });
 
     // Extract basic form fields with resident fallback
-    const barangay = sanitizeString(formData.get("barangay") as string || resident?.barangay || "Mapandan");
+    const barangay = sanitizeString(formData.get("barangay") as string || resident?.barangay || "{{BARANGAY_NAME}}");
     const street = sanitizeString(formData.get("street") as string || resident?.street || "");
     const estimatedCost = sanitizeString(formData.get("estimatedCost") as string || "0");
     const fenceType = sanitizeString(formData.get("fenceType") as string || "Concrete Hollow Block (CHB) & Steel Grille");
@@ -171,7 +171,7 @@ export async function submitFencingPermit(formData: FormData) {
       permitType: "FENCING_PERMIT",
       barangay,
       street,
-      projectAddress: `${street ? street + ", " : ""}Brgy. ${barangay}, Mapandan, Pangasinan`,
+      projectAddress: `${street ? street + ", " : ""}Brgy. ${barangay}, Municipality of E-LGU`,
       estimatedCost: parsedCost,
       fenceType,
       fenceSecurityFeature,
@@ -181,7 +181,7 @@ export async function submitFencingPermit(formData: FormData) {
       applicantName: resident ? `${resident.firstName} ${resident.lastName}` : "Applicant",
       lengthInMeters: parsedLength,
       heightInMeters: parsedHeight,
-      location: `${street ? street + ", " : ""}Brgy. ${barangay}, Mapandan, Pangasinan`,
+      location: `${street ? street + ", " : ""}Brgy. ${barangay}, Municipality of E-LGU`,
       fencingLocation: {
         barangay,
         street,

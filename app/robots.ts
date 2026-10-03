@@ -1,7 +1,9 @@
 import { MetadataRoute } from "next";
+import lguConfig from "@/config/lgu.config.json";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = "https://emapandan.com";
+  const website = lguConfig.identity.website;
+  const baseUrl = website.includes("{{") ? null : website.replace(/\/+$/, "");
 
   return {
     rules: [
@@ -57,6 +59,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
+    ...(baseUrl ? { sitemap: `${baseUrl}/sitemap.xml` } : {}),
   };
 }

@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -147,12 +148,8 @@ export function CedulaAppointmentClient({
     const [applicantTarget, setApplicantTarget] = useState<"SELF" | "RELATIVE">("SELF");
     const [relationshipToApplicant, setRelationshipToApplicant] = useState<string>("");
 
-    const MAPANDAN_BARANGAYS = [
-        "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez",
-        "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"
-    ];
-
-    // Form inputs state
+    const LGU_BARANGAYS = configuredBarangays;
+// Form inputs state
     const [formState, setFormState] = useState({
         firstName: resident?.firstName || "",
         lastName: resident?.lastName || "",
@@ -168,8 +165,8 @@ export function CedulaAppointmentClient({
         houseNumber: resident?.houseNumber || "",
         street: resident?.street || "",
         barangay: resident?.barangay || "",
-        municipality: resident?.municipality || "Mapandan",
-        province: resident?.province || "Pangasinan",
+        municipality: resident?.municipality || "E-LGU",
+        province: resident?.province || "{{PROVINCE_NAME}}",
         contactNumber: resident?.contactNumber || "",
         email: resident?.email || "",
         // Calculations
@@ -202,8 +199,8 @@ export function CedulaAppointmentClient({
                 houseNumber: resident?.houseNumber || "",
                 street: resident?.street || "",
                 barangay: resident?.barangay || "",
-                municipality: resident?.municipality || "Mapandan",
-                province: resident?.province || "Pangasinan",
+                municipality: resident?.municipality || "E-LGU",
+                province: resident?.province || "{{PROVINCE_NAME}}",
                 contactNumber: resident?.contactNumber || "",
                 email: resident?.email || "",
             }));
@@ -227,8 +224,8 @@ export function CedulaAppointmentClient({
                 houseNumber: "",
                 street: "",
                 barangay: "",
-                municipality: "Mapandan",
-                province: "Pangasinan",
+                municipality: "E-LGU",
+                province: "{{PROVINCE_NAME}}",
                 contactNumber: "",
                 email: "",
             }));
@@ -1305,8 +1302,8 @@ export function CedulaAppointmentClient({
                                                     {[
                                                         [formState.houseNumber, formState.street].filter(Boolean).join(" "),
                                                         formState.barangay ? `Brgy. ${formState.barangay}` : null,
-                                                        formState.municipality || "Mapandan",
-                                                        formState.province || "Pangasinan"
+                                                        formState.municipality || "E-LGU",
+                                                        formState.province || "{{PROVINCE_NAME}}"
                                                     ].filter(Boolean).join(", ") || "No residential address on record"}
                                                 </p>
                                             </div>
@@ -1335,7 +1332,7 @@ export function CedulaAppointmentClient({
                                                         name="placeOfBirth"
                                                         value={formState.placeOfBirth}
                                                         onChange={handleInputChange}
-                                                        placeholder="Enter your City / Municipality, Province of birth (e.g. Mapandan, Pangasinan)"
+                                                        placeholder="Enter your City / Municipality, Province of birth (e.g. City / Municipality, Province)"
                                                         className={cn(
                                                             "h-10 text-xs font-medium rounded-xl transition-all",
                                                             selfFieldErrors.placeOfBirth
@@ -1647,7 +1644,7 @@ export function CedulaAppointmentClient({
                                                                 <SelectValue placeholder="Select Barangay..." />
                                                             </SelectTrigger>
                                                             <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 max-h-56 z-[200]">
-                                                                {MAPANDAN_BARANGAYS.map((brgy) => (
+                                                                {LGU_BARANGAYS.map((brgy) => (
                                                                     <SelectItem key={brgy} value={brgy}>
                                                                         {brgy}
                                                                     </SelectItem>
@@ -1703,7 +1700,7 @@ export function CedulaAppointmentClient({
                                                                 setRelativeErrors(prev => ({ ...prev, placeOfBirth: false }));
                                                             }
                                                         }}
-                                                        placeholder="City / Municipality, Province of birth (e.g. Mapandan, Pangasinan)"
+                                                        placeholder="City / Municipality, Province of birth (e.g. City / Municipality, Province)"
                                                         className={cn(
                                                             "h-10 text-xs font-medium rounded-xl transition-all",
                                                             relativeErrors.placeOfBirth && "border-destructive ring-2 ring-destructive/30"

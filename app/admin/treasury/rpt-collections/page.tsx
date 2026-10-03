@@ -8,7 +8,7 @@ import RptCollectionsClient from "./RptCollectionsClient";
 import { getRptCollectionsLedger } from "./actions";
 
 export const metadata: Metadata = {
-    title: "RPT Collections & Reports | Mapandan Portal",
+    title: "RPT Collections & Reports | E-LGU Portal",
     description: "Official administrative ledger and Form 10(A) abstract reports for Real Property Tax collections.",
 };
 

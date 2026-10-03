@@ -345,7 +345,7 @@ export default function DeathCertificateRequestPage() {
         const upperVal = val.toUpperCase();
         const found = barangaysList.find(b => upperVal.includes(b.toUpperCase()));
         if (found) {
-            return `${found.toUpperCase()}, MAPANDAN, PANGASINAN`;
+            return `${found.toUpperCase()}, MUNICIPALITY OF E-LGU`;
         }
         return val;
     };
@@ -524,7 +524,7 @@ export default function DeathCertificateRequestPage() {
                         residentData.sitio && `Sitio ${residentData.sitio}`,
                         residentData.barangay && `Brgy. ${residentData.barangay}`,
                         residentData.municipality || "",
-                        residentData.province || "Pangasinan"
+                        residentData.province || "{{PROVINCE_NAME}}"
                     ].filter(Boolean);
                     constructedAddr = parts.join(", ").toUpperCase();
                 }
@@ -746,7 +746,7 @@ export default function DeathCertificateRequestPage() {
                 gender: form.gender || resident?.gender || "",
                 barangay: resident?.barangay || "",
                 municipality: resident?.municipality || "",
-                province: resident?.province || "Pangasinan"
+                province: resident?.province || "{{PROVINCE_NAME}}"
             }));
 
             const deceasedFullName = `${form.deceasedFirstName} ${form.deceasedMiddleName} ${form.deceasedLastName} ${form.deceasedSuffix}`.replace(/\s+/g, " ").trim();
@@ -1241,7 +1241,7 @@ export default function DeathCertificateRequestPage() {
                                             value={form.contactNumber}
                                             onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                             className={cn("h-10 rounded-xl text-xs md:text-sm font-bold", (showErrors && !form.contactNumber) && "border-2 border-red-500")}
-                                            placeholder="e.g. 09123456789"
+                                            placeholder="09XX-XXX-XXXX"
                                             maxLength={11}
                                         />
                                         <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
@@ -1307,7 +1307,7 @@ export default function DeathCertificateRequestPage() {
                                     </Label>
                                 </div>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider italic">
-                                    If the deceased was a registered resident of Mapandan, you can search and select their profile to automatically pre-fill the name fields below.
+                                    If the deceased was a registered resident of our municipality, you can search and select their profile to automatically pre-fill the name fields below.
                                 </p>
                                 <ResidentSearch
                                     placeholder="Type resident name to search..."
@@ -1532,7 +1532,7 @@ export default function DeathCertificateRequestPage() {
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
                                                 {barangaysList.map((brgy) => (
-                                                    <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MAPANDAN, PANGASINAN`}>
+                                                    <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MUNICIPALITY OF E-LGU`}>
                                                         {brgy.toUpperCase()}
                                                     </SelectItem>
                                                 ))}

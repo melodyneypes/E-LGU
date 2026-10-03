@@ -15,7 +15,7 @@ interface CaptainHotlinesHeaderProps {
 export function CaptainHotlinesHeader({
     session,
     themeColor,
-    managedBarangay = "Apaya",
+    managedBarangay = "{{BARANGAY_NAME}}",
 }: CaptainHotlinesHeaderProps) {
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);

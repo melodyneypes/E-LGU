@@ -8,6 +8,7 @@ import { useDisaster, DisasterZone } from "../providers/DisasterProvider";
 import { addDisasterZone, updateDisasterZone, deleteDisasterZone } from "../../actions";
 import { toast } from "sonner";
 import type { GeoJsonObject } from "geojson";
+import lguConfig from "@/config/lgu.config.json";
 
 // ─── Dynamic imports to prevent SSR issues ──────────────────────────────────
 const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false, loading: () => <MapLoading /> });
@@ -17,10 +18,13 @@ const Marker       = dynamic(() => import("react-leaflet").then(m => m.Marker), 
 const Popup        = dynamic(() => import("react-leaflet").then(m => m.Popup),        { ssr: false });
 const GeoJSON      = dynamic(() => import("react-leaflet").then(m => m.GeoJSON),      { ssr: false });
 
-const BINALONAN_CENTER: [number, number] = [16.0549, 120.6017];
-const BINALONAN_ZOOM = 13;
+const MUNICIPAL_CENTER: [number, number] = [
+    lguConfig.map.latitude ?? 0,
+    lguConfig.map.longitude ?? 0,
+];
+const MUNICIPAL_ZOOM = 13;
 
-// ─── MapController: fits map to Binalonan boundary on load ───────────────────────
+// ─── MapController: fits map to municipal boundary on load ───────────────────────
 function MapController({ border }: { border: GeoJsonObject | null }) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useMap } = require("react-leaflet");
@@ -76,7 +80,7 @@ type MapStyleKey = keyof typeof MAP_STYLES;
 // ─── Main Component ──────────────────────────────────────────────────────────
 export function DisasterMapView() {
     const { zones, activeZoneId, setActiveZoneId, updateZone, removeZone } = useDisaster();
-    const [binalonanBorder, setBinalonanBorder] = useState<GeoJsonObject | null>(null);
+    const [municipalBorder, setMunicipalBorder] = useState<GeoJsonObject | null>(null);
     const [mounted,     setMounted]     = useState(false);
     const [iconsLoaded, setIconsLoaded] = useState(false);
     const [mapStyle,    setMapStyle]    = useState<MapStyleKey>("satellite");
@@ -90,11 +94,11 @@ export function DisasterMapView() {
     useEffect(() => {
         setMounted(true);
 
-        // ── Load Binalonan boundary from public folder ──────────────────────────
-        fetch("/mapandan-border.json")
+        // ── Load municipal boundary from public folder ──────────────────────────
+        fetch(lguConfig.map.boundaryFile)
             .then(res => res.json())
-            .then(data => setBinalonanBorder(data))
-            .catch(err => console.error("Failed to load Binalonan border:", err));
+            .then(data => setMunicipalBorder(data))
+            .catch(err => console.error("Failed to load municipal border:", err));
 
         // ── Bootstrap Leaflet icons (must run client-side) ─────────────────
         import("leaflet").then(L => {
@@ -121,19 +125,19 @@ export function DisasterMapView() {
         });
     }, []);
 
-    // ── Mask polygon: darkens everything OUTSIDE Binalonan ─────────────────────
+    // ── Mask polygon: darkens everything OUTSIDE the municipality ─────────────────────
     const maskPositions = useMemo(() => {
          
-        if (!binalonanBorder || (binalonanBorder as any).type !== "Polygon") return null;
+        if (!municipalBorder || (municipalBorder as any).type !== "Polygon") return null;
         const outerWorld: [number, number][] = [
             [90, -180], [90, 180], [-90, 180], [-90, -180],
         ];
         // GeoJSON [lng, lat] → Leaflet [lat, lng]
          
-        const binalonanRing: [number, number][] = (binalonanBorder as any).coordinates[0]
+        const municipalRing: [number, number][] = (municipalBorder as any).coordinates[0]
             .map((c: [number, number]) => [c[1], c[0]]);
-        return [outerWorld, binalonanRing];
-    }, [binalonanBorder]);
+        return [outerWorld, municipalRing];
+    }, [municipalBorder]);
 
     if (!mounted || !iconsLoaded) return <MapLoading />;
 
@@ -171,8 +175,8 @@ export function DisasterMapView() {
     };
 
     const handleAddArea = async (zone: DisasterZone) => {
-        // Default new shape placed at Binalonan's correct center
-        const [clat, clng] = BINALONAN_CENTER;
+        // Default new shape placed at municipal center
+        const [clat, clng] = MUNICIPAL_CENTER;
         const newShape: [number, number][] = [
             [clat + 0.005, clng - 0.005],
             [clat + 0.005, clng + 0.005],
@@ -219,23 +223,23 @@ export function DisasterMapView() {
 
             <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-[#2a3040] h-[700px]">
                 <MapContainer
-                    center={BINALONAN_CENTER}   // ✅ Corrected for Binalonan
-                    zoom={BINALONAN_ZOOM}
+                    center={MUNICIPAL_CENTER}
+                    zoom={MUNICIPAL_ZOOM}
                     style={{ height: "100%", width: "100%", zIndex: 0 }}
                 >
-                    {/* Fits map to exact Binalonan boundary on load */}
-                    <MapController border={binalonanBorder} />
+                    {/* Fits map to exact municipal boundary on load */}
+                    <MapController border={municipalBorder} />
 
                     <TileLayer
                         attribution={MAP_STYLES[mapStyle].attribution}
                         url={MAP_STYLES[mapStyle].url}
                     />
 
-                    {/* Binalonan boundary outline */}
-                    {binalonanBorder && (
+                    {/* Municipal boundary outline */}
+                    {municipalBorder && (
                         <GeoJSON
-                            key={JSON.stringify(binalonanBorder)} // force re-render on data change
-                            data={binalonanBorder}
+                            key={JSON.stringify(municipalBorder)} // force re-render on data change
+                            data={municipalBorder}
                             style={{
                                 color: "#3b82f6",
                                 weight: 3,
@@ -245,7 +249,7 @@ export function DisasterMapView() {
                         />
                     )}
 
-                    {/* Mask: dims everything outside Binalonan */}
+                    {/* Mask: dims everything outside the municipality */}
                     {maskPositions && (
                         <Polygon
                              

@@ -221,7 +221,7 @@ export default function DeathRegistrationPage() {
             if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName || !formData.corpseDisposal || !formData.burialLocation) {
                 return false;
             }
-            if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") return false;
+            if (formData.placeOfDeath === "OUTSIDE_MUNICIPALITY" || formData.placeOfDeath === "OUTSIDE_LGU") return false;
             if (isSelfRegistration()) return false;
             return true;
         }
@@ -291,8 +291,8 @@ export default function DeathRegistrationPage() {
                 return false;
             }
 
-            if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") {
-                toast.error("Registration blocked: Place of death is outside Mapandan.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
+            if (formData.placeOfDeath === "OUTSIDE_MUNICIPALITY" || formData.placeOfDeath === "OUTSIDE_LGU") {
+                toast.error("Registration blocked: Place of death is outside the municipality.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
                 return false;
             }
             if (isSelfRegistration()) {
@@ -472,7 +472,7 @@ export default function DeathRegistrationPage() {
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
                         r.municipality || "",
-                        r.province || "Pangasinan"
+                        r.province || "{{PROVINCE_NAME}}"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 
@@ -702,8 +702,8 @@ export default function DeathRegistrationPage() {
             return;
         }
 
-        if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") {
-            toast.error("Registration blocked: Place of death is outside Mapandan.");
+        if (formData.placeOfDeath === "OUTSIDE_MUNICIPALITY" || formData.placeOfDeath === "OUTSIDE_LGU") {
+            toast.error("Registration blocked: Place of death is outside the municipality.");
             return;
         }
 
@@ -1254,7 +1254,7 @@ export default function DeathRegistrationPage() {
                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
                                                         (showErrors && !formData.contactNumber) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                     )}
-                                                    placeholder="e.g. +63917XXXXXXX"
+                                                    placeholder="+63 9XX XXX XXXX"
                                                     value={formData.contactNumber}
                                                     onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9+]/g, '') }))}
                                                 />
@@ -1316,7 +1316,7 @@ export default function DeathRegistrationPage() {
                                             </Label>
                                         </div>
                                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider italic">
-                                            If the deceased was a registered resident of Mapandan, you can search and select their profile to automatically pre-fill all available information.
+                                            If the deceased was a registered resident of our municipality, you can search and select their profile to automatically pre-fill all available information.
                                         </p>
                                         <ResidentSearch
                                             placeholder="Type resident name to search..."
@@ -1423,13 +1423,13 @@ export default function DeathRegistrationPage() {
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Death <span className="text-red-500">*</span></Label>
 
-                                            {formData.placeOfDeath === "OUTSIDE_MAPANDAN" && (
+                                            {(formData.placeOfDeath === "OUTSIDE_MUNICIPALITY" || formData.placeOfDeath === "OUTSIDE_LGU") && (
                                                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px] font-bold italic flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-350 mb-2">
                                                     <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
                                                     <div className="space-y-1 text-left">
                                                         <p className="font-black uppercase tracking-widest text-[9px] leading-none text-amber-500">Paalala</p>
                                                         <p className="leading-relaxed">
-                                                            Ang Death Certificate ay dapat irehistro sa bayan kung saan pumanaw ang tao. Dahil sa labas ng Mapandan naganap ito, mangyaring makipag-ugnayan sa Local Civil Registrar ng tamang bayan. Salamat po. (Awtomatikong iba-block ng system ang submission).
+                                                            Ang Death Certificate ay dapat irehistro sa bayan kung saan pumanaw ang tao. Dahil sa labas ng ating bayan naganap ito, mangyaring makipag-ugnayan sa Local Civil Registrar ng tamang bayan. Salamat po. (Awtomatikong iba-block ng system ang submission).
                                                         </p>
                                                     </div>
                                                 </div>
@@ -1455,7 +1455,7 @@ export default function DeathRegistrationPage() {
                                                             {brgy}
                                                         </SelectItem>
                                                     ))}
-                                                    <SelectItem value="OUTSIDE_MAPANDAN">OUTSIDE MAPANDAN</SelectItem>
+                                                    <SelectItem value="OUTSIDE_MUNICIPALITY">OUTSIDE MUNICIPALITY</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             {(showErrors && !formData.placeOfDeath) && (

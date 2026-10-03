@@ -102,7 +102,7 @@ export function TermsClient({ themeColor }: TermsClientProps) {
                                 1. Accuracy and Verification of Filings
                             </h3>
                             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium italic pl-3.5">
-                                By using EMapandan digital portal, you state under pain of perjury that all uploaded files, ID scans, declarations of annual gross revenue, and household counts are legitimate and accurate. The LGU reserves the right to run spot verification audits and require physical document presentation at the Municipal Hall.
+                                By using the E-LGU digital portal, you state under pain of perjury that all uploaded files, ID scans, declarations of annual gross revenue, and household counts are legitimate and accurate. The LGU reserves the right to run spot verification audits and require physical document presentation at the Municipal Hall.
                             </p>
                         </div>
 
@@ -122,7 +122,7 @@ export function TermsClient({ themeColor }: TermsClientProps) {
                                 3. Account Action and Suspension Policies
                             </h3>
                             <p className="text-sm text-red-500 dark:text-red-400 leading-relaxed font-bold italic pl-3.5">
-                                We enforce a strict Three-Strike Rejection Policy. If your submitted requests in a service division are rejected 3 times due to fraudulent data, false declarations, or intentional documentation violations, your portal login privileges will be suspended permanently. You must resolve the suspension in person at Mapandan Municipal Hall.
+                                We enforce a strict Three-Strike Rejection Policy. If your submitted requests in a service division are rejected 3 times due to fraudulent data, false declarations, or intentional documentation violations, your portal login privileges will be suspended permanently. You must resolve the suspension in person at the Municipal Hall.
                             </p>
                         </div>
 
@@ -132,7 +132,7 @@ export function TermsClient({ themeColor }: TermsClientProps) {
                                 4. Portal Availability and Maintenance Disclaimer
                             </h3>
                             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium italic pl-3.5">
-                                Although we target maximum portal uptime, EMapandan LGU is not liable for transaction processing delays resulting from network downtime, server updates, database sync lags, or system maintenance cycles. All payments and approvals must clear official verification queues.
+                                Although we target maximum portal uptime, E-LGU is not liable for transaction processing delays resulting from network downtime, server updates, database sync lags, or system maintenance cycles. All payments and approvals must clear official verification queues.
                             </p>
                         </div>
                     </motion.div>

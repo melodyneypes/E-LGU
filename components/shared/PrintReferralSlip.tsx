@@ -165,7 +165,7 @@ export default function PrintReferralSlip({
                     {/* Header */}
                     <div className="text-center border-b-2 border-slate-900 pb-4 mb-6 relative">
                         <p className="text-[11px] font-bold uppercase tracking-widest text-slate-600">Republic of the Philippines</p>
-                        <p className="text-xs font-black uppercase tracking-wider text-slate-800">Province of Pangasinan • Municipality of Mapandan</p>
+                        <p className="text-xs font-black uppercase tracking-wider text-slate-800">Municipality of E-LGU</p>
                         <h1 className="text-xl font-black uppercase tracking-tight text-slate-900 mt-1">RURAL HEALTH UNIT</h1>
                         <div className="inline-block bg-slate-900 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest mt-2">
                             Official Patient Medical Referral Slip
@@ -182,8 +182,8 @@ export default function PrintReferralSlip({
                     <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-100 border border-slate-300 rounded-xl">
                         <div className="border-r border-slate-300 pr-4">
                             <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Referring Facility (Origin)</p>
-                            <p className="text-sm font-black text-slate-900 uppercase mt-0.5">{referringFacility || "Mapandan Rural Health Unit"}</p>
-                            <p className="text-[10px] font-semibold text-slate-600 mt-0.5">Mapandan, Pangasinan</p>
+                            <p className="text-sm font-black text-slate-900 uppercase mt-0.5">{referringFacility || "Municipal Rural Health Unit"}</p>
+                            <p className="text-[10px] font-semibold text-slate-600 mt-0.5">Municipality of E-LGU</p>
                         </div>
                         <div className="pl-2">
                             <p className="text-[10px] font-black uppercase text-fuchsia-700 tracking-wider">Destination Facility (Referral Target)</p>
@@ -308,14 +308,14 @@ export default function PrintReferralSlip({
                             </div>
                             <div className="border-t border-slate-800 pt-1">
                                 <p className="font-bold text-[10px] uppercase text-slate-600">RHU Station Official Stamp & Date Received</p>
-                                <p className="text-[9px] text-slate-500">Mapandan Municipal Health Office</p>
+                                <p className="text-[9px] text-slate-500">Municipal Health Office</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Footer */}
                     <div className="mt-6 text-center text-[9px] text-slate-500 border-t border-slate-200 pt-2 font-mono">
-                        Generated automatically via EMapandan Health Control System • Timestamp: {displayTimestamp} • Document ID: {controlNumber}
+                        Generated automatically via E-LGU Health Control System • Timestamp: {displayTimestamp} • Document ID: {controlNumber}
                     </div>
                 </div>
             </div>

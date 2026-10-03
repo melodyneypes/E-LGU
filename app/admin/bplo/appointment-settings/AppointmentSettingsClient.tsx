@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import React, { useState } from "react";
 import { toast } from "sonner";
@@ -263,7 +265,7 @@ export default function AppointmentSettingsClient({
 
             {/* Bottom Info */}
             <div className="max-w-3xl mx-auto text-center space-y-2 opacity-40">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] italic">Mapandan Municipal Portal • Business Permits & Licensing Office</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] italic">{sanitizeLguText("{{LGU_NAME}}")} Municipal Portal • Business Permits & Licensing Office</p>
                 <div className="h-0.5 w-12 bg-slate-300 dark:bg-white/10 mx-auto rounded-full" />
             </div>
         </div>

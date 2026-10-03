@@ -405,7 +405,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                             <div>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Registered Barangay</span>
                                 <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                    {resident.barangay ? `Brgy. ${resident.barangay}` : "Mapandan Resident"}
+                                    {resident.barangay ? `Brgy. ${resident.barangay}` : "Resident"}
                                 </p>
                             </div>
                         </div>
@@ -462,7 +462,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Project Site Location</span>
                                 <p className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                     <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                                    {additional.projectAddress || additional.location || `Brgy. ${additional.barangay}, Mapandan, Pangasinan`}
+                                    {additional.projectAddress || additional.location || `Brgy. ${additional.barangay}, Municipality of E-LGU`}
                                 </p>
                             </div>
                         </div>

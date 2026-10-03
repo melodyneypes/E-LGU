@@ -15,6 +15,7 @@ import {
     ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -610,8 +611,8 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         <!-- Header -->
                         <div class="text-center border-b border-slate-200 pb-4 space-y-1">
                             <h1 class="text-lg font-black uppercase tracking-wider text-slate-900">Rural Health Unit</h1>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Municipality of Mapandan</p>
-                            <p class="text-[9px] text-slate-400 font-medium">Pangasinan, Philippines</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Local Government Unit</p>
+                            <p class="text-[9px] text-slate-400 font-medium">Rural Health Unit</p>
                             <div class="inline-block bg-slate-900 text-white px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-1">
                                 Official Medical Prescription (Rx)
                             </div>
@@ -636,7 +637,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             </div>
                             <div>
                                 <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Address / Barangay</span>
-                                <p class="font-bold text-slate-800 uppercase">${transaction.barangay || resident.barangay || "Mapandan"}</p>
+                                <p class="font-bold text-slate-800 uppercase">${transaction.barangay || resident.barangay || "{{BARANGAY_NAME}}"}</p>
                             </div>
                             ${(resident.gender || addData.gender) ? `
                             <div>
@@ -904,7 +905,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                     referenceNo: transaction.controlNumber || `RX-${transaction.id.slice(0, 8).toUpperCase()}`,
                     remarks: `Prescription Dispense • Patient: ${patientName} • Dispensed by: ${currentUser?.name || "RHU Pharmacy"}`,
                     healthCenterId: transaction.healthCenterId || null,
-                    facilityName: addData.healthCenterName || "RHU Mapandan"
+                    facilityName: addData.healthCenterName || "Main Rural Health Unit (RHU)"
                 });
                 if (!dispRes.success) {
                     toast.error(dispRes.error || "Failed to deduct inventory stock.");
@@ -1192,7 +1193,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     BARANGAY
                                 </p>
                                 <p className="text-xs font-black uppercase text-slate-800 dark:text-slate-100 italic">
-                                    {resident.barangay || "MAPANDAN"}
+                                    {resident.barangay || "{{BARANGAY_NAME}}"}
                                 </p>
                             </div>
                             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 space-y-1">
@@ -3641,7 +3642,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 Referral Hospital / Facility Name <span className="text-rose-500">*</span>
                             </p>
                             <Input
-                                placeholder="e.g. Region 1 Medical Center, Pangasinan Provincial Hospital..."
+                                placeholder={lguConfig.healthcare.referralHospital}
                                 value={referralFacility}
                                 onChange={(e) => {
                                     setReferralFacility(e.target.value);
@@ -3991,8 +3992,8 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             {/* Header details */}
                             <div className="text-center border-b border-slate-100 dark:border-white/5 pb-4">
                                 <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Rural Health Unit</h3>
-                                <p className="text-[10px] text-slate-500 uppercase tracking-widest">Municipality of Mapandan</p>
-                                <p className="text-[9px] text-slate-400">Pangasinan, Philippines</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-widest">Local Government Unit</p>
+                                <p className="text-[9px] text-slate-400">Rural Health Unit</p>
                             </div>
 
                             {/* Patient Metadata Grid */}
@@ -4012,7 +4013,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Barangay</span>
-                                    <p className="font-bold text-slate-900 dark:text-white uppercase">{transaction.barangay || "Mapandan"}</p>
+                                    <p className="font-bold text-slate-900 dark:text-white uppercase">{transaction.barangay || "{{BARANGAY_NAME}}"}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Transaction ID</span>
@@ -4357,8 +4358,8 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                 barangay={resident.barangay || addData.barangay}
                 contactNumber={resident.contactNumber || addData.phoneNumber}
                 philhealthNumber={addData.vitals?.philhealthNumber}
-                referringFacility={addData.healthCenterName || currentCenterName || "Mapandan Rural Health Unit"}
-                destinationFacility={addData.referralFacility || "Pangasinan Provincial Hospital / Main RHU"}
+                referringFacility={addData.healthCenterName || currentCenterName || "Municipal Rural Health Unit"}
+                destinationFacility={addData.referralFacility || "Provincial Hospital / Main RHU"}
                 referredAt={addData.referredAt || transaction.updatedAt || new Date()}
                 checkupType={checkupDisplay}
                 symptoms={addData.customCheckupType || addData.notes || transaction.notes}

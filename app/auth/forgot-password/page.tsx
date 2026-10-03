@@ -6,8 +6,8 @@ import { SystemSetting, HeroSlide } from "@prisma/client";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-    title: "Forgot Password | EMapandan",
-    description: "Reset your EMapandan portal account password.",
+    title: "Forgot Password | E-LGU",
+    description: "Reset your E-LGU portal account password.",
 };
 
 export default async function ForgotPasswordPage() {

@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import lguConfig from "@/config/lgu.config.json";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import { SubmitStep } from "./components/SubmitStep";
 import { BFPStep } from "./components/BFPStep";
@@ -281,8 +282,8 @@ function parseLocationString(loc: string) {
   const streetPart = parts.find(p =>
     p !== housePart &&
     p !== brgyPart &&
-    !p.toLowerCase().includes("mapandan") &&
-    !p.toLowerCase().includes("pangasinan")
+    !p.toLowerCase().includes(lguConfig.identity.name.toLowerCase()) &&
+    !p.toLowerCase().includes("{{PROVINCE_NAME}}")
   );
   if (streetPart) {
     result.street = streetPart;
@@ -551,7 +552,7 @@ export default function BuildingPermitPage() {
       formData.locationHouseNumber ? `No. ${formData.locationHouseNumber}` : "",
       formData.locationStreet ? formData.locationStreet.trim() : "",
       formData.locationBarangay ? `Brgy. ${formData.locationBarangay}` : "",
-      "Mapandan, Pangasinan"
+      "Municipality of E-LGU, Philippines"
     ].filter(Boolean);
 
     const combined = parts.join(", ");
@@ -960,7 +961,7 @@ export default function BuildingPermitPage() {
       office: "Assessor's Office",
       icon: <FileText className="w-5 h-5 text-slate-400" />,
       steps: [
-        "Go to the Municipal Assessor's Office at the Municipal Hall, Mapandan.",
+        "Go to the Municipal Assessor's Office at the Municipal Hall.",
         "Request for a \"Certified True Copy of Tax Declaration\" for your property.",
         "Provide the Tax Declaration number or the lot owner's name and location.",
         "Pay the certification fee at the Treasury Office (usually ₱50-₱100).",
@@ -992,7 +993,7 @@ export default function BuildingPermitPage() {
       office: "Treasury Office",
       icon: <ClipboardList className="w-5 h-5 text-red-400" />,
       steps: [
-        "Go to the Municipal Treasury Office at the Mapandan Municipal Hall.",
+        "Go to the Municipal Treasury Office at the Municipal Hall.",
         "Request for a Community Tax Certificate (Cedula).",
         "Provide your name, address, and declare your annual income (for tax classification).",
         "Pay the community tax (₱5.00 basic + ₱1.00 for every ₱1,000 income, minimum ₱10-₱20).",
@@ -1054,7 +1055,7 @@ export default function BuildingPermitPage() {
       office: "Barangay Hall",
       icon: <Scroll className="w-5 h-5 text-stone-500" />,
       steps: [
-        "Go to the Barangay Hall where your property is located (e.g., Brgy. Poblacion).",
+        "Go to the Barangay Hall where your property is located (e.g., Brgy. {{BARANGAY_NAME}}).",
         "Request for a \"Barangay Clearance for Building Construction\" or \"Certification\".",
         "Fill out the application form and provide details of your construction project.",
         "Pay the barangay clearance fee (usually ₱50-₱100 depending on barangay ordinance).",
@@ -1986,7 +1987,7 @@ export default function BuildingPermitPage() {
                   <Book className="w-3 h-3" /> Citizen's Charter
                 </span>
                 <h4 className="text-sm font-black tracking-widest text-slate-700 dark:text-white italic">
-                  Based on Mapandan Building Permit Process
+                  Based on Municipal Building Permit Process
                 </h4>
                 <div className="text-xs text-primary dark:text-primary/90 font-bold bg-primary/[0.02] border border-primary/10 p-4 rounded-xl mt-2 italic font-sans leading-relaxed">
                   &quot;Compliant with PD 1096 (National Building Code), RA 11032 (EODB Act), and RA 10173 (Data Privacy Act). Ensure all requirements are duly signed and notarized where applicable.&quot;
@@ -2243,7 +2244,7 @@ export default function BuildingPermitPage() {
                         <div className="md:col-span-2">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Complete Address</p>
                           <p className="font-bold text-slate-800 dark:text-slate-200 mt-1 uppercase text-sm">
-                            {displayResident?.houseNumber ? `#${displayResident.houseNumber} ${displayResident.street || ""}, Brgy. ${displayResident.barangay || ""}, Mapandan, Pangasinan` : "N/A"}
+                            {displayResident?.houseNumber ? `#${displayResident.houseNumber} ${displayResident.street || ""}, Brgy. ${displayResident.barangay || ""}, Municipality of E-LGU` : "N/A"}
                           </p>
                         </div>
                       </div>
@@ -3622,4 +3623,3 @@ export default function BuildingPermitPage() {
     </div>
   );
 }
-

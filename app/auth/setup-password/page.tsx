@@ -8,8 +8,8 @@ import crypto from "crypto";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-    title: "Setup Password | EMapandan",
-    description: "Secure your EMapandan account by completing your initial password setup.",
+    title: "Setup Password | E-LGU",
+    description: "Secure your E-LGU account by completing your initial password setup.",
 };
 
 interface SetupPasswordPageProps {

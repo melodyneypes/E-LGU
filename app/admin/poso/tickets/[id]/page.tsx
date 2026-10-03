@@ -470,7 +470,7 @@ export default function TicketDetailsPage() {
                                     <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-start">
                                         <MapPin className="w-4 h-4 mr-1.5 text-rose-500 shrink-0 mt-0.5" />
                                         <span>
-                                            {resolvedAddress || (ticket.location ? `${ticket.location}${ticket.barangay ? `, Barangay ${ticket.barangay}` : ""}` : "Mapandan, Pangasinan")}
+                                            {resolvedAddress || (ticket.location ? `${ticket.location}${ticket.barangay ? `, Barangay ${ticket.barangay}` : ""}` : "Municipality of E-LGU")}
                                             {isGeocoding && <span className="text-xs text-slate-400 italic ml-2">(Converting coordinates...)</span>}
                                         </span>
                                     </p>
@@ -550,7 +550,7 @@ export default function TicketDetailsPage() {
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Impounding Facility Location</span>
                                     <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 flex items-center">
                                         <Building2 className="w-4 h-4 mr-1.5 text-amber-600" />
-                                        {ticket.impoundYard || "Mapandan POSO Impounding Facility"}
+                                        {ticket.impoundYard || "Municipal POSO Impounding Facility"}
                                     </p>
                                 </div>
 

@@ -255,7 +255,7 @@ export async function exportAuditLogsCSV(params?: {
         return {
             success: true,
             csv: csvContent,
-            fileName: `Mapandan_Audit_Trail_${new Date().toISOString().split("T")[0]}.csv`
+            fileName: `LGU_Audit_Trail_${new Date().toISOString().split("T")[0]}.csv`
         };
     } catch (error: any) {
         console.error("[exportAuditLogsCSV] Error:", error);

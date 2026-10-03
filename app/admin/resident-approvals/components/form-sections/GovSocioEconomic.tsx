@@ -106,7 +106,7 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
         </div>
         <div className="space-y-2">
           <label className="text-sm font-semibold">Employer/Company</label>
-          <Input name="employer" defaultValue={data?.employer} placeholder="e.g. LGU Mapandan" />
+          <Input name="employer" defaultValue={data?.employer} placeholder="e.g. LOCAL GOVERNMENT UNIT" />
         </div>
       </div>
 

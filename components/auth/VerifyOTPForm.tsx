@@ -24,7 +24,7 @@ interface LockoutState {
     cooldownUntil: number | null;
 }
 
-const STORAGE_KEY = "emapandan_otp_lockout_by_email";
+const STORAGE_KEY = "E-LGU_otp_lockout_by_email";
 const DEFAULT_STATE: LockoutState = {
     phase: 1,
     attemptsLeft: 3,
@@ -49,7 +49,7 @@ interface VerifyOTPFormProps {
     themeColor?: string;
 }
 
-export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormProps) {
+export function VerifyOTPForm({ email, themeColor = "#0038a8" }: VerifyOTPFormProps) {
     const [isLoading, setIsLoading] = React.useState(false);
     const [timeLeft, setTimeLeft] = React.useState(120);
     const [isOtpFocused, setIsOtpFocused] = React.useState(false);

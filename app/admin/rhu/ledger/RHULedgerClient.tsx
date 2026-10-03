@@ -470,7 +470,7 @@ export default function RHULedgerClient({ initialData }: RHULedgerClientProps = 
                                                         {patientName}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400 font-bold italic">
-                                                        {addData.relationship ? `For: ${addData.relationship}` : "Self"} • Brgy. {resident.barangay || "Mapandan"}
+                                                        {addData.relationship ? `For: ${addData.relationship}` : "Self"} • Brgy. {resident.barangay || "{{BARANGAY_NAME}}"}
                                                     </span>
                                                 </div>
                                             </TableCell>

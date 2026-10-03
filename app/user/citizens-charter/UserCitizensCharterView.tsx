@@ -682,7 +682,7 @@ function StandingBookCard({ title, logoUrl, icon: Icon, onClick }: StandingBookC
                                 Citizen&apos;s Charter
                             </span>
                             <span className="text-[6.5px] font-bold uppercase tracking-widest text-white/80 block">
-                                Municipality of Mapandan
+                                Municipality of E-LGU
                             </span>
                         </div>
 

@@ -173,7 +173,7 @@ export async function ensureBusinessPermitTransactionTypes() {
             {
                 code: "BUSINESS_PERMIT_NEW",
                 name: "Business Permit - New",
-                description: "Apply for a new business permit for starting a business in Mapandan, Pangasinan.",
+                description: "Apply for a new business permit for starting a business in our municipality.",
                 level: 1,
                 category: "Business Permit",
                 baseFee: 500.00,
@@ -450,7 +450,7 @@ export async function ensureCivilRegistryTransactionTypes() {
             {
                 code: "LCR_MARRIAGE_LICENSE",
                 name: "Marriage License Application",
-                description: "Apply for a marriage license to be married in Mapandan.",
+                description: "Apply for a marriage license to be married in our municipality.",
                 level: 1,
                 category: "Civil Registry",
                 baseFee: 862.00,
@@ -4692,7 +4692,7 @@ export async function releaseBuildingPermitAction(id: string) {
                 applicantName: applicantName,
                 projectType: additionalData.descriptionOfWork || "Building Construction",
                 occupancyUse: additionalData.occupancyUse || "Residential",
-                location: additionalData.location || resident.address || "Mapandan, Pangasinan",
+                location: additionalData.location || resident.address || "Municipality of E-LGU",
                 estimatedCost: parseFloat(additionalData.estimatedCost) || 0,
                 documentUrl: transaction.eCopyUrl,
                 issuedBy: user.name || user.email || "Municipal Engineer"

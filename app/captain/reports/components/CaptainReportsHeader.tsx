@@ -30,7 +30,7 @@ const iconMap: Record<string, LucideIcon> = {
 export function CaptainReportsHeader({
     session,
     themeColor,
-    managedBarangay = "Apaya",
+    managedBarangay = "{{BARANGAY_NAME}}",
     title = "Citizen Incident Reports",
     subtitle,
     iconName = "flag",

@@ -28,7 +28,7 @@ export default async function CaptainAnnouncementsPage(props: {
         redirect("/auth/login");
     }
 
-    const managedBarangay = user?.managedBarangay || "Apaya";
+    const managedBarangay = user?.managedBarangay || "{{BARANGAY_NAME}}";
     const params = await props.searchParams;
 
     const page = Math.max(1, parseInt(params.page || "1", 10));

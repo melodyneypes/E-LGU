@@ -170,7 +170,7 @@ export async function createDining(formData: FormData) {
                 entityType: "Dining",
                 entityId: dining.id,
                 entityName: dining.name,
-                description: `Created dining listing: "${dining.name}" in ${dining.barangay || "Mapandan"}`,
+                description: `Created dining listing: "${dining.name}" in ${dining.barangay || "{{LGU_NAME}}"}`,
                 metadata: {
                     name: dining.name,
                     cuisineType: dining.cuisineType,
@@ -401,7 +401,7 @@ export async function deleteDining(id: string) {
                 entityType: "Dining",
                 entityId: id,
                 entityName: existing.name,
-                description: `Deleted dining listing: "${existing.name}" (${existing.barangay || "Mapandan"})`,
+                description: `Deleted dining listing: "${existing.name}" (${existing.barangay || "{{LGU_NAME}}"})`,
                 metadata: {
                     name: existing.name,
                     cuisineType: existing.cuisineType,

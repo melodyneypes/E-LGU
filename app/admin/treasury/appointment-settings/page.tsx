@@ -7,7 +7,7 @@ import prisma from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "Appointment Settings | Mapandan Portal",
+    title: "Appointment Settings | E-LGU Portal",
     description: "Official administrative configuration for Cedula appointment slot limits and active schedule days.",
 };
 

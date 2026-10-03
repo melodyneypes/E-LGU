@@ -214,8 +214,8 @@ export async function saveTransactionIdentityProfileAndGrossAction(params: Updat
             houseNumber: incoming.houseNumber ?? currentSnapshot.houseNumber,
             street: incoming.street ?? currentSnapshot.street,
             barangay: incoming.barangay ?? currentSnapshot.barangay,
-            municipality: incoming.municipality ?? currentSnapshot.municipality ?? "Mapandan",
-            province: incoming.province ?? currentSnapshot.province ?? "Pangasinan",
+            municipality: incoming.municipality ?? currentSnapshot.municipality ?? "E-LGU",
+            province: incoming.province ?? currentSnapshot.province ?? "{{PROVINCE_NAME}}",
         };
 
         // Build updated additionalData

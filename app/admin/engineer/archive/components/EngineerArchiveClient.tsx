@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { getArchivedBuildingPermits, createArchivedBuildingPermit, updateArchivedBuildingPermit } from "../actions";
@@ -56,24 +57,7 @@ import { toast } from "sonner";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { compressDocumentScan } from "@/lib/image-compression";
 
-const MAPANDAN_BARANGAYS = [
-    "Amanoaoac",
-    "Apaya",
-    "Aserda",
-    "Baloling",
-    "Coral",
-    "Golden",
-    "Jimenez",
-    "Lambayan",
-    "Luyan",
-    "Nilombot",
-    "Pias",
-    "Poblacion",
-    "Primicias",
-    "Santa Maria",
-    "Torres",
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 const PERMIT_TYPES = ["NEW", "RENEWAL", "AMENDATORY"] as const;
 
 const OCCUPANCY_GROUPS = [
@@ -207,9 +191,9 @@ export default function EngineerArchiveClient({
         blkNo: "",
         tctNo: "",
         street: "",
-        barangay: "Torres",
-        municipality: "MAPANDAN",
-        province: "PANGASINAN",
+        barangay: "{{BARANGAY_NAME}}",
+        municipality: "E-LGU",
+        province: "{{PROVINCE_NAME}}",
         zipCode: "2429",
 
         // Character of Occupancy & Scope
@@ -333,7 +317,7 @@ export default function EngineerArchiveClient({
 
                     // Match or normalize Barangay
                     if (d.barangay) {
-                        const matchedBrgy = MAPANDAN_BARANGAYS.find(
+                        const matchedBrgy = LGU_BARANGAYS.find(
                             b => b.toLowerCase() === d.barangay!.trim().toLowerCase()
                         );
                         if (matchedBrgy) {
@@ -499,9 +483,9 @@ export default function EngineerArchiveClient({
             blkNo: "",
             tctNo: "",
             street: "",
-            barangay: "Torres",
-            municipality: "MAPANDAN",
-            province: "PANGASINAN",
+            barangay: "{{BARANGAY_NAME}}",
+            municipality: "E-LGU",
+            province: "{{PROVINCE_NAME}}",
             zipCode: "2429",
 
             occupancyGroup: "GROUP A",
@@ -571,9 +555,9 @@ export default function EngineerArchiveClient({
             blkNo: item.blkNo || "",
             tctNo: item.tctNo || "",
             street: item.street || "",
-            barangay: item.barangay || "Torres",
-            municipality: "MAPANDAN",
-            province: "PANGASINAN",
+            barangay: item.barangay || "{{BARANGAY_NAME}}",
+            municipality: "E-LGU",
+            province: "{{PROVINCE_NAME}}",
             zipCode: "2429",
 
             occupancyGroup: item.occupancyGroup || "GROUP A",
@@ -962,7 +946,7 @@ export default function EngineerArchiveClient({
                                                         NBC Form No. B - 01B • Building Permit
                                                     </h3>
                                                     <p className="text-[10px] text-slate-400 font-medium">
-                                                        Office of the Building Official • Municipality of Mapandan
+                                                        Office of the Building Official • Municipality of E-LGU
                                                     </p>
                                                 </div>
 
@@ -1179,7 +1163,7 @@ export default function EngineerArchiveClient({
                                                             <SelectValue placeholder="Select Barangay" />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {MAPANDAN_BARANGAYS.map(brgy => (
+                                                            {LGU_BARANGAYS.map(brgy => (
                                                                 <SelectItem key={brgy} value={brgy}>
                                                                     Brgy. {brgy}
                                                                 </SelectItem>
@@ -1193,7 +1177,7 @@ export default function EngineerArchiveClient({
                                                         Municipality & ZIP
                                                     </Label>
                                                     <div className="h-11 px-3.5 rounded-xl bg-slate-100/70 dark:bg-[#121622]/60 border border-slate-200 dark:border-[#2a3040] flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                                                        <span>MAPANDAN</span>
+                                                        <span>E-LGU</span>
                                                         <span className="font-mono text-indigo-600 dark:text-indigo-400">2429</span>
                                                     </div>
                                                 </div>
@@ -1958,7 +1942,7 @@ export default function EngineerArchiveClient({
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All 15 Barangays</SelectItem>
-                            {MAPANDAN_BARANGAYS.map(brgy => (
+                            {LGU_BARANGAYS.map(brgy => (
                                 <SelectItem key={brgy} value={brgy}>
                                     Brgy. {brgy}
                                 </SelectItem>
@@ -2294,7 +2278,7 @@ export default function EngineerArchiveClient({
                                     Office Scanner Setup Guide
                                 </DialogTitle>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    3 simple steps to scan permits directly into EMapandan
+                                    3 simple steps to scan permits directly into E-LGU
                                 </p>
                             </div>
                         </div>
@@ -2343,7 +2327,7 @@ export default function EngineerArchiveClient({
                                         Click &quot;Fetch from Scanner Folder&quot;
                                     </p>
                                     <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        In this modal, click the button and select your scanner folder. EMapandan will automatically sort and attach the newest scan instantly!
+                                        In this modal, click the button and select your scanner folder. E-LGU will automatically sort and attach the newest scan instantly!
                                     </p>
                                 </div>
                             </div>

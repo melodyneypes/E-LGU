@@ -286,5 +286,5 @@ export const authOptions: NextAuthOptions = {
             },
         },
     },
-    secret: process.env.NEXTAUTH_SECRET || "emapandan_fallback_secret_key_2026",
+    secret: process.env.NEXTAUTH_SECRET || "elgu_fallback_secret_key_2026",
 };

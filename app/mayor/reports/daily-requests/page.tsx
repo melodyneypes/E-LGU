@@ -86,7 +86,7 @@ export default async function MayorDailyRequestsReportPage(props: {
                 activeBarangays={barangays}
                 selectedBarangay={barangay}
                 title="Daily Requests Oversight"
-                subtitle="Mapandan Executive Audit & Service Logs"
+                subtitle="E-LGU Executive Audit & Service Logs"
                 badge="Executive Audit"
                 iconName="file-text"
             />

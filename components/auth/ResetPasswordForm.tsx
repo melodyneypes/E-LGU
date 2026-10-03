@@ -22,7 +22,7 @@ interface ResetPasswordFormProps {
     themeColor?: string;
 }
 
-export function ResetPasswordForm({ token, themeColor = "#2563eb" }: ResetPasswordFormProps) {
+export function ResetPasswordForm({ token, themeColor = "#0038a8" }: ResetPasswordFormProps) {
     const router = useRouter();
     const [isSuccess, setIsSuccess] = React.useState(false);
     const [showPassword, setShowPassword] = React.useState(false);

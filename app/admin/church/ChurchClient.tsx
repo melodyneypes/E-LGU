@@ -1,5 +1,7 @@
  
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import React, { useState, useMemo } from "react";
 import {
@@ -398,12 +400,12 @@ export default function ChurchClient({
                         ) : (
                             <>
                                 <Globe className="mr-3 w-10 h-10" style={{ color: 'var(--primary-theme)' }} />
-                                Mapandan Main Parish Hub
+                                {sanitizeLguText("{{LGU_NAME}}")} Main Parish Hub
                             </>
                         )}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
-                        {info.barangay ? `Administrative transparency for local ${info.barangay} parish works.` : "Centralized administrative ledger and global schedules for Mapandan Parish."}
+                        {info.barangay ? `Administrative transparency for local ${info.barangay} parish works.` : "Centralized administrative ledger and global schedules for {{LGU_NAME}} Parish."}
                     </p>
                 </div>
 
@@ -1088,11 +1090,11 @@ export default function ChurchClient({
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Latitude</label>
-                                    <input type="number" step="any" value={info.latitude || ""} onChange={e => setInfo({ ...info, latitude: e.target.value ? parseFloat(e.target.value) : undefined })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold" placeholder="e.g. 16.0354" />
+                                    <input type="number" step="any" value={info.latitude || ""} onChange={e => setInfo({ ...info, latitude: e.target.value ? parseFloat(e.target.value) : undefined })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold" placeholder="Latitude" />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Longitude</label>
-                                    <input type="number" step="any" value={info.longitude || ""} onChange={e => setInfo({ ...info, longitude: e.target.value ? parseFloat(e.target.value) : undefined })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold" placeholder="e.g. 120.4431" />
+                                    <input type="number" step="any" value={info.longitude || ""} onChange={e => setInfo({ ...info, longitude: e.target.value ? parseFloat(e.target.value) : undefined })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold" placeholder="Longitude" />
                                 </div>
                             </div>
                             <div>

@@ -643,7 +643,7 @@ export default function DriversClient({
                                     required
                                     value={driverForm.contactNumber}
                                     onChange={(e) => setDriverForm({ ...driverForm, contactNumber: e.target.value })}
-                                    placeholder="e.g. 0917-123-4567"
+                                    placeholder="e.g. 09XX-XXX-XXXX"
                                     className="h-11 w-full min-w-0 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs font-mono"
                                 />
                             </div>
@@ -823,7 +823,7 @@ export default function DriversClient({
                             <Input
                                 value={driverForm.emergencyContact}
                                 onChange={(e) => setDriverForm({ ...driverForm, emergencyContact: e.target.value })}
-                                placeholder="e.g. Maria Dela Cruz (Spouse) - 0918-987-6543"
+                                placeholder="e.g. Emergency Contact (Relationship) - 09XX-XXX-XXXX"
                                 className="h-11 w-full min-w-0 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                             />
                         </div>

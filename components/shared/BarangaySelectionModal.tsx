@@ -23,7 +23,7 @@ export function BarangaySelectionModal({
     isOpen,
     onClose,
     barangays,
-    themeColor = "#2563eb"
+    themeColor = "#0038a8"
 }: BarangaySelectionModalProps) {
     const { selectedBarangay, setSelectedBarangay } = useBarangay();
     const [search, setSearch] = React.useState("");

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -850,7 +851,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                 required
                                 value={hotlineForm.number}
                                 onChange={(e) => setHotlineForm({ ...hotlineForm, number: e.target.value })}
-                                placeholder="e.g. 0917-555-0199 or (075) 529-1234"
+                                placeholder={lguConfig.contact.hotlines.health}
                                 className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                             />
                         </div>

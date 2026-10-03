@@ -72,15 +72,15 @@ export function DashboardClientWrapper({ headerAction, headerControls, children 
 
   useEffect(() => {
     try {
-      const savedAnalytics = localStorage.getItem("emapandan_analytics_visibility_v1");
+      const savedAnalytics = localStorage.getItem("E-LGU_analytics_visibility_v1");
       if (savedAnalytics) {
         setAnalyticsVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedAnalytics) }));
       }
-      const savedCommunity = localStorage.getItem("emapandan_community_visibility_v1");
+      const savedCommunity = localStorage.getItem("E-LGU_community_visibility_v1");
       if (savedCommunity) {
         setCommunityVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedCommunity) }));
       }
-      const savedSectionOrder = localStorage.getItem("emapandan_dashboard_section_order_v1");
+      const savedSectionOrder = localStorage.getItem("E-LGU_dashboard_section_order_v1");
       if (savedSectionOrder) {
         const parsed: string[] = JSON.parse(savedSectionOrder);
         if (Array.isArray(parsed) && parsed.length === 4) {
@@ -95,7 +95,7 @@ export function DashboardClientWrapper({ headerAction, headerControls, children 
   const handleReorderSections = (newOrder: string[]) => {
     setSectionOrder(newOrder);
     try {
-      localStorage.setItem("emapandan_dashboard_section_order_v1", JSON.stringify(newOrder));
+      localStorage.setItem("E-LGU_dashboard_section_order_v1", JSON.stringify(newOrder));
     } catch {
       /* Fail gracefully */
     }
@@ -105,7 +105,7 @@ export function DashboardClientWrapper({ headerAction, headerControls, children 
     setAnalyticsVisibilityMap((prev) => {
       const updated = { ...prev, [key]: !prev[key] };
       try {
-        localStorage.setItem("emapandan_analytics_visibility_v1", JSON.stringify(updated));
+        localStorage.setItem("E-LGU_analytics_visibility_v1", JSON.stringify(updated));
       } catch {
         /* Fail gracefully */
       }
@@ -117,7 +117,7 @@ export function DashboardClientWrapper({ headerAction, headerControls, children 
     setCommunityVisibilityMap((prev) => {
       const updated = { ...prev, [key]: !prev[key] };
       try {
-        localStorage.setItem("emapandan_community_visibility_v1", JSON.stringify(updated));
+        localStorage.setItem("E-LGU_community_visibility_v1", JSON.stringify(updated));
       } catch {
         /* Fail gracefully */
       }
@@ -218,9 +218,9 @@ export function DashboardClientWrapper({ headerAction, headerControls, children 
       cardVisibility={mergedVisibilityMap}
       onToggleVisibility={handleToggleCommunityOrAnalytics}
       onResetAll={() => {
-        localStorage.removeItem("emapandan_analytics_visibility_v1");
-        localStorage.removeItem("emapandan_community_visibility_v1");
-        localStorage.removeItem("emapandan_dashboard_section_order_v1");
+        localStorage.removeItem("E-LGU_analytics_visibility_v1");
+        localStorage.removeItem("E-LGU_community_visibility_v1");
+        localStorage.removeItem("E-LGU_dashboard_section_order_v1");
         window.location.reload();
       }}
       sectionOrder={sectionOrder}

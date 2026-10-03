@@ -9,7 +9,7 @@ import MDRRMODashboardClient from "./MDRRMODashboardClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "MDRRMO Emergency Hub | Mapandan Admin",
+    title: "MDRRMO Emergency Hub | LGU Admin",
     description: "Command center for Municipal Disaster Risk Reduction & Management Office, ambulance dispatch, driver monitoring, vehicle compliance, and emergency advisories.",
 };
 

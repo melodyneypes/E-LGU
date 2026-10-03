@@ -2,6 +2,7 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import lguConfig from "@/config/lgu.config.json";
 
 export interface POExportOptions {
     signatoryMHO?: string;
@@ -17,16 +18,12 @@ export interface POExportOptions {
 }
 
 /**
- * Loads the official Mapandan municipality logo for PDF header embedding.
+ * Loads the configured neutral logo for PDF header embedding.
  */
-async function loadLogoImage(logoUrl?: string): Promise<string | null> {
+async function loadLogoImage(): Promise<string | null> {
     if (typeof window === "undefined") return null;
 
-    const urlsToTry: string[] = [
-        logoUrl,
-        "/images/mapandan-logo.png",
-        "https://ntanbjizlavyokjdauag.supabase.co/storage/v1/object/public/system-assets/logos/logo-1787803174016.png"
-    ].filter(Boolean) as string[];
+    const urlsToTry = [lguConfig.assets.reportLogo];
 
     for (const url of urlsToTry) {
         if (url.startsWith("data:image/")) return url;
@@ -137,7 +134,7 @@ export function numberToPesosWords(amount: number): string {
 }
 
 /**
- * Generates and downloads an official Philippine Government / LGU Mapandan
+ * Generates and downloads an official Philippine Government / LGU {{LGU_NAME}}
  * Purchase Order (PO) PDF for medical equipment and clinic supplies.
  */
 export async function exportPOPDF(po: any, options: POExportOptions = {}) {
@@ -156,8 +153,8 @@ export async function exportPOPDF(po: any, options: POExportOptions = {}) {
     // =========================================================================
     // 1. OFFICIAL LGU HEADER
     // =========================================================================
-    // Official Mapandan Municipal Logo (Left)
-    const logoDataUrl = await loadLogoImage(options.logoUrl);
+    // Official {{LGU_NAME}} Municipal Logo (Left)
+    const logoDataUrl = await loadLogoImage();
     if (logoDataUrl) {
         try {
             doc.addImage(logoDataUrl, "PNG", margin + 1, 10, 20, 20);
@@ -172,17 +169,17 @@ export async function exportPOPDF(po: any, options: POExportOptions = {}) {
     doc.text("REPUBLIC OF THE PHILIPPINES", pageWidth / 2, 12, { align: "center" });
 
     doc.setFontSize(8.5);
-    doc.text("PROVINCE OF PANGASINAN", pageWidth / 2, 16.5, { align: "center" });
+    doc.text("REPUBLIC OF THE PHILIPPINES", pageWidth / 2, 16.5, { align: "center" });
 
     doc.setFontSize(10);
     doc.setTextColor(20, 25, 40);
-    doc.text("MUNICIPALITY OF MAPANDAN", pageWidth / 2, 21.5, { align: "center" });
+    doc.text("MUNICIPALITY OF LGU", pageWidth / 2, 21.5, { align: "center" });
 
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(80, 80, 80);
     doc.text("MUNICIPAL HEALTH OFFICE / RURAL HEALTH UNIT (RHU)", pageWidth / 2, 26, { align: "center" });
-    doc.text("Email: rhu@mapandan.gov.ph • Telefax: (075) 568-2026", pageWidth / 2, 29.5, { align: "center" });
+    doc.text(`Email: ${lguConfig.seedAccounts.rhuEmail} • Telefax: ${lguConfig.contact.fax}`, pageWidth / 2, 29.5, { align: "center" });
 
     // Decorative rule
     doc.setDrawColor(20, 55, 120);
@@ -441,14 +438,14 @@ export async function exportPOPDF(po: any, options: POExportOptions = {}) {
     doc.setFont("helvetica", "bold");
     doc.text(options.signatoryAccountant || "________________________________________________", colSplit + 3, signY + 38);
     doc.setFont("helvetica", "normal");
-    doc.text("Local Government Unit of Mapandan, Pangasinan", colSplit + 3, signY + 41.5);
+    doc.text("Local Government Unit • Municipality of LGU", colSplit + 3, signY + 41.5);
 
     // =========================================================================
     // 7. FOOTER
     // =========================================================================
     doc.setFontSize(6.5);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Generated via EMapandan RHU Asset Monitoring Engine • ${po.poNumber} • Page 1 of 1`, pageWidth / 2, pageHeight - 6, { align: "center" });
+    doc.text(`Generated via E-LGU RHU Asset Monitoring Engine • ${po.poNumber} • Page 1 of 1`, pageWidth / 2, pageHeight - 6, { align: "center" });
 
     // Save PDF
     const cleanNumber = (po.poNumber || "PO").replace(/[^a-zA-Z0-9_-]/g, "_");

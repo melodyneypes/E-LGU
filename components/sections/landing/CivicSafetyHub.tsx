@@ -15,7 +15,7 @@ interface CivicSafetyHubProps {
     themeColor?: string;
 }
 
-export function CivicSafetyHub({ themeColor = "var(--primary-theme, #2563eb)" }: CivicSafetyHubProps) {
+export function CivicSafetyHub({ themeColor = "var(--primary-theme, #0038a8)" }: CivicSafetyHubProps) {
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
 
     React.useEffect(() => {
@@ -33,12 +33,12 @@ export function CivicSafetyHub({ themeColor = "var(--primary-theme, #2563eb)" }:
             statusText: "Real-Time Monitoring",
             statusColor: "bg-amber-500",
             statusBadge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-            description: "Check active road closures, floodings, maintenance projects, and detour routes across Mapandan before travelling.",
+            description: "Check active road closures, floodings, maintenance projects, and detour routes across the municipality before travelling.",
             icon: Compass,
             iconBg: "bg-amber-500/10 text-amber-500",
             glowColor: "rgba(245, 158, 11, 0.15)",
             ctaText: "Check Road Advisory",
-            href: "/road-advisory/mapandan",
+            href: "/road-advisory/local",
             metaBadge: "Interactive Map & Closures",
         },
         {
@@ -53,7 +53,7 @@ export function CivicSafetyHub({ themeColor = "var(--primary-theme, #2563eb)" }:
             iconBg: "bg-blue-500/10 text-blue-500",
             glowColor: "rgba(37, 99, 235, 0.15)",
             ctaText: "Access POSO Portal",
-            href: "/poso/mapandan",
+            href: "/poso/portal",
             metaBadge: "QR Ticket Scan & Settle",
         }
     ];
@@ -64,16 +64,16 @@ export function CivicSafetyHub({ themeColor = "var(--primary-theme, #2563eb)" }:
             <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-3 pt-3 -mx-6 px-6 md:mx-0 md:px-0 md:pt-0 bg-white/95 dark:bg-slate-950/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
                     <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75 shadow-[0_0_8px_rgba(0,210,255,0.8)]" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-400" />
                     </span>
                     <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-slate-700 dark:text-slate-300">
                         Public Safety & Mobility Portals
                     </span>
                 </div>
                 <div className="hidden sm:flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                    Official Mapandan Citizen Services
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    Official Citizen Services & Public Safety
                 </div>
             </div>
 

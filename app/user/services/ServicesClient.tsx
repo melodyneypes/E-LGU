@@ -268,7 +268,7 @@ export default function ServicesClient({ initialServices, themeColor }: Services
                         <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
                             <Sparkles className="w-4 h-4 text-white" />
                         </div>
-                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/70 italic">EMapandan Citizen Suite</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/70 italic">E-LGU Citizen Suite</span>
                     </div>
 
                     <h1 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none">

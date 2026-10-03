@@ -266,7 +266,7 @@ export default function CivilRegistryPage() {
         registryType: "BIRTH",
         fullName: "",
         dateOfEvent: "",
-        placeOfEvent: "MUNICIPALITY OF MAPANDAN",
+        placeOfEvent: "MUNICIPALITY OF E-LGU",
         fatherName: "",
         fatherFirstName: "",
         fatherMiddleName: "",
@@ -381,7 +381,7 @@ export default function CivilRegistryPage() {
                         certLastName: "",
                         certSuffix: "",
                         dateOfEvent: "",
-                        placeOfEvent: "MUNICIPALITY OF MAPANDAN",
+                        placeOfEvent: "MUNICIPALITY OF E-LGU",
                         fatherName: "",
                         fatherFirstName: "",
                         fatherMiddleName: "",
@@ -439,7 +439,7 @@ export default function CivilRegistryPage() {
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
                         r.municipality || "",
-                        r.province || "Pangasinan"
+                        r.province || "{{PROVINCE_NAME}}"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 
@@ -686,7 +686,7 @@ export default function CivilRegistryPage() {
                 certSuffix: form.certSuffix,
                 subjectName: form.fullName,
                 dateOfEvent: form.dateOfEvent,
-                placeOfEvent: form.placeOfEvent || "MUNICIPALITY OF MAPANDAN",
+                placeOfEvent: form.placeOfEvent || "MUNICIPALITY OF E-LGU",
                 fatherFirstName: form.fatherFirstName,
                 fatherMiddleName: form.fatherMiddleName,
                 fatherLastName: form.fatherLastName,
@@ -1365,8 +1365,8 @@ export default function CivilRegistryPage() {
                                                 <Input
                                                     name="placeOfEvent"
                                                     className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-400 font-bold h-10 transition-all uppercase cursor-not-allowed"
-                                                    placeholder="MUNICIPALITY OF MAPANDAN"
-                                                    value={form.placeOfEvent || "MUNICIPALITY OF MAPANDAN"}
+                                                    placeholder="MUNICIPALITY OF E-LGU"
+                                                    value={form.placeOfEvent || "MUNICIPALITY OF E-LGU"}
                                                     readOnly
                                                 />
                                             </div>
@@ -1758,7 +1758,7 @@ export default function CivilRegistryPage() {
                                             <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
                                                 <div className="font-black uppercase text-[11px] tracking-wider text-slate-800 dark:text-white">DATA PRIVACY & CERTIFICATION AGREEMENT</div>
                                                 <div className="text-[10px] text-slate-500 italic mt-1 leading-relaxed line-clamp-2 md:line-clamp-none">
-                                                    BY SUBMITTING, I CERTIFY THAT ALL INFORMATION PROVIDED IS TRUE AND CORRECT. I AM AWARE OF THE DATA PRIVACY POLICY OF MAPANDAN. CLICK TO REVIEW AGREEMENT.
+                                                    BY SUBMITTING, I CERTIFY THAT ALL INFORMATION PROVIDED IS TRUE AND CORRECT. I AM AWARE OF THE DATA PRIVACY POLICY OF E-LGU. CLICK TO REVIEW AGREEMENT.
                                                 </div>
                                                 {showErrors && !policyAccepted && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse mt-1">Please accept the Privacy Policy & Terms before submitting.</p>

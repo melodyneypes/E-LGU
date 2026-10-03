@@ -323,8 +323,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     };
 
     const [branding, setBranding] = useState({
-        word1: "Mapandan",
-        word2: "Express",
+        word1: "E-",
+        word2: "LGU",
         logo: ""
     });
     const [additionalFeeLabel, setAdditionalFeeLabel] = useState("");
@@ -604,8 +604,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 const settings = res.data;
                 if (settings.theme_color) setThemeColor(settings.theme_color);
                 setBranding({
-                    word1: settings.brand_word_1 || "Mapandan",
-                    word2: settings.brand_word_2 || "Express",
+                    word1: settings.brand_word_1 || "E-",
+                    word2: settings.brand_word_2 || "LGU",
                     logo: settings.site_logo || ""
                 });
             }

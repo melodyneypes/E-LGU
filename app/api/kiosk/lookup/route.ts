@@ -26,7 +26,7 @@ export async function POST(request: Request) {
                 );
             }
 
-            const secret = process.env.NEXTAUTH_SECRET || "emapandan-fallback-kiosk-secret";
+            const secret = process.env.NEXTAUTH_SECRET || "E-LGU-fallback-kiosk-secret";
             const expectedSignature = crypto.createHmac("sha256", secret)
                 .update(JSON.stringify(payload))
                 .digest("hex");

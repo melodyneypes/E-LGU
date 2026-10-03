@@ -3,32 +3,17 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { cn } from "@/lib/utils";
 import { PrivacyPolicyClient } from "./PrivacyPolicyClient";
+import lguConfig from "@/config/lgu.config.json";
 
 export const dynamic = "force-dynamic";
 
 export default async function PrivacyPolicyPage() {
     const settings = await getMultipleSystemSettings([
-        "site_logo",
-        "brand_word_1",
-        "brand_word_2",
-        "theme_color",
         "maintenance_mode",
-        "social_facebook",
-        "social_twitter",
-        "social_instagram",
-        "contact_address",
-        "contact_email",
-        "contact_phone"
     ]);
 
     const isMaintenance = settings.get("maintenance_mode") === "true";
-    const themeColor = settings.get("theme_color") || "#2563eb";
-    const facebookUrl = settings.get("social_facebook") || "#";
-    const twitterUrl = settings.get("social_twitter") || "#";
-    const instagramUrl = settings.get("social_instagram") || "#";
-    const contactAddress = settings.get("contact_address") || "Municipal Hall, Poblacion";
-    const contactEmail = settings.get("contact_email") || "info@portal.gov.ph";
-    const contactPhone = settings.get("contact_phone") || "(075) 000-0000";
+    const themeColor = lguConfig.theme.primary;
 
     return (
         <div 
@@ -39,9 +24,6 @@ export default async function PrivacyPolicyPage() {
             style={{ "--primary-theme": themeColor } as React.CSSProperties}
         >
             <Navbar 
-                logoUrl={settings.get("site_logo") || ""} 
-                brandWord1={settings.get("brand_word_1") || "LGU"} 
-                brandWord2={settings.get("brand_word_2") || ""} 
                 themeColor={themeColor} 
                 isMaintenanceActive={isMaintenance}
             />
@@ -58,16 +40,7 @@ export default async function PrivacyPolicyPage() {
             </main>
 
             <Footer 
-                logoUrl={settings.get("site_logo") || ""} 
-                brandWord1={settings.get("brand_word_1") || "LGU"} 
-                brandWord2={settings.get("brand_word_2") || ""} 
                 themeColor={themeColor} 
-                facebookUrl={facebookUrl}
-                twitterUrl={twitterUrl}
-                instagramUrl={instagramUrl}
-                contactAddress={contactAddress}
-                contactEmail={contactEmail}
-                contactPhone={contactPhone}
             />
         </div>
     );

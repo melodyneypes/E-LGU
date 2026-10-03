@@ -482,7 +482,7 @@ export default function RptCollectionsClient({
                                     </p>
                                 </div>
                                 <span className="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                                    LGU MAPANDAN
+                                    MUNICIPALITY OF E-LGU
                                 </span>
                             </div>
 
@@ -621,7 +621,7 @@ export default function RptCollectionsClient({
                                                 const val = e.target.value;
                                                 setTreasurerName(val);
                                                 if (typeof window !== "undefined") {
-                                                    localStorage.setItem("emapandan_rpt_treasurer_name", val);
+                                                    localStorage.setItem("E-LGU_rpt_treasurer_name", val);
                                                 }
                                             }}
                                             className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"
@@ -639,7 +639,7 @@ export default function RptCollectionsClient({
                                                 const val = e.target.value;
                                                 setTreasurerTitle(val);
                                                 if (typeof window !== "undefined") {
-                                                    localStorage.setItem("emapandan_rpt_treasurer_title", val);
+                                                    localStorage.setItem("E-LGU_rpt_treasurer_title", val);
                                                 }
                                             }}
                                             className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"

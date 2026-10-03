@@ -6,6 +6,7 @@ import { MapPin, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { lguMapCenter } from "@/lib/utils/lgu";
 
 interface LocationPickerInnerProps {
     initialLat?: number;
@@ -33,7 +34,7 @@ function LocationMarker({ position, setPosition }: { position: [number, number],
 }
 
 export default function LocationPickerInner({ initialLat, initialLng, onSelect, onClose }: LocationPickerInnerProps) {
-    const [position, setPosition] = useState<[number, number]>([initialLat || 16.0264, initialLng || 120.4537]);
+    const [position, setPosition] = useState<[number, number]>([initialLat ?? lguMapCenter[0], initialLng ?? lguMapCenter[1]]);
 
     return (
         <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">

@@ -16,7 +16,7 @@ export async function getCaptainNotifications() {
         }
 
         const userId = user.id;
-        const managedBarangay = user.managedBarangay || "Apaya";
+        const managedBarangay = user.managedBarangay || "{{BARANGAY_NAME}}";
 
         // Query directives that are either broadcast to ALL_CAPTAINS or specifically targeted to this Captain's barangay
         const allDirectives = await (prisma as any).executiveDirective.findMany({
@@ -37,7 +37,7 @@ export async function getCaptainNotifications() {
         const directives = allDirectives.filter((d: any) => {
             if (d.targetScope === "ALL_CAPTAINS") return true;
 
-            // Check targetBarangay string (e.g. "Apaya" or "Apaya, Coral, Aserda")
+            // Check targetBarangay string (e.g. "{{BARANGAY_NAME}}" or "{{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}")
             if (d.targetBarangay) {
                 const parts = d.targetBarangay.split(",").map((p: string) => p.trim().toLowerCase());
                 if (parts.includes(managedClean)) return true;
@@ -94,7 +94,7 @@ export async function getCaptainDirectiveById(directiveId: string) {
         }
 
         const userId = user.id;
-        const managedBarangay = user.managedBarangay || "Apaya";
+        const managedBarangay = user.managedBarangay || "{{BARANGAY_NAME}}";
 
         const directive = await (prisma as any).executiveDirective.findUnique({
             where: { id: directiveId },
@@ -203,7 +203,7 @@ export async function markAllDirectivesAsRead() {
         }
 
         const userId = user.id;
-        const managedBarangay = user.managedBarangay || "Apaya";
+        const managedBarangay = user.managedBarangay || "{{BARANGAY_NAME}}";
 
         const directives = await (prisma as any).executiveDirective.findMany({
             where: {

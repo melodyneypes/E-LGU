@@ -174,7 +174,7 @@ export async function createAccommodation(formData: FormData) {
                 entityType: "Accommodation",
                 entityId: accommodation.id,
                 entityName: accommodation.name,
-                description: `Created accommodation listing: "${accommodation.name}" in ${accommodation.barangay || "Mapandan"}`,
+                description: `Created accommodation listing: "${accommodation.name}" in ${accommodation.barangay || "{{LGU_NAME}}"}`,
                 metadata: {
                     name: accommodation.name,
                     type: accommodation.type,
@@ -415,7 +415,7 @@ export async function deleteAccommodation(id: string) {
                 entityType: "Accommodation",
                 entityId: id,
                 entityName: existing.name,
-                description: `Deleted accommodation listing: "${existing.name}" (${existing.barangay || "Mapandan"})`,
+                description: `Deleted accommodation listing: "${existing.name}" (${existing.barangay || "{{LGU_NAME}}"})`,
                 metadata: {
                     name: existing.name,
                     type: existing.type,

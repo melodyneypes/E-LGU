@@ -27,7 +27,7 @@ export function HouseholdFilters() {
     const barangays = Array.from(new Set(households.map(h => h.barangay))).sort();
 
     // Default standard barangays if DB is empty
-    const defaultBarangays = ["Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez", "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"];
+    const defaultBarangays = ["{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}"];
     const displayBarangays = barangays.length > 0 ? barangays : defaultBarangays;
 
     const riskLevels = ["Safe", "Low Risk", "Moderate Risk", "High Risk", "Flood Prone", "Landslide Prone"];

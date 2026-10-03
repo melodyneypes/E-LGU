@@ -69,7 +69,7 @@ Extract the following fields accurately:
 - childName: Full name of the child (First Name, Middle Name, Last Name)
 - sex: Either "MALE" or "FEMALE"
 - dateOfBirth: Date of birth in YYYY-MM-DD format
-- placeOfBirth: Hospital/clinic or Municipality/Province of birth (default to "Mapandan, Pangasinan" if location indicates Mapandan)
+- placeOfBirth: Hospital/clinic or Municipality/Province of birth (default to "Municipality of E-LGU" if location indicates local municipality)
 - fatherName: Full name of father
 - motherMaidenName: Maiden name of mother (First, Middle, Last)
 `;

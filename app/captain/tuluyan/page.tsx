@@ -27,7 +27,7 @@ export default async function CaptainTuluyanPage(props: {
         redirect("/auth/login");
     }
 
-    const managedBarangay = user?.managedBarangay || "Apaya";
+    const managedBarangay = user?.managedBarangay || "{{BARANGAY_NAME}}";
     const params = await props.searchParams;
     const search = params.search || "";
     const status = params.status || "All";

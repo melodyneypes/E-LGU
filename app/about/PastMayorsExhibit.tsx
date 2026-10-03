@@ -35,7 +35,7 @@ interface PastMayorsExhibitProps {
     isBarangayView?: boolean;
 }
 
-export function PastMayorsExhibit({ mayors, brandWord1 = "Mapandan", brandWord2 = "", isBarangayView }: PastMayorsExhibitProps) {
+export function PastMayorsExhibit({ mayors, brandWord1 = "E-", brandWord2 = "LGU", isBarangayView }: PastMayorsExhibitProps) {
     const [[page, direction], setPage] = React.useState([0, 0]);
     const [isPaused, setIsPaused] = React.useState(false);
 

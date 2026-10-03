@@ -20,12 +20,12 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
-const PublicRoadMap = dynamic(() => import("@/app/road-advisory/mapandan/components/PublicRoadMap"), {
+const PublicRoadMap = dynamic(() => import("@/app/road-advisory/local/components/PublicRoadMap"), {
     ssr: false,
     loading: () => (
         <div className="w-full h-[460px] bg-slate-900 rounded-3xl flex flex-col items-center justify-center shadow-xl border border-slate-800">
             <Loader2 className="w-8 h-8 text-amber-500 animate-spin mb-3" />
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading Mapandan Road Network...</p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading Municipal Road Network...</p>
         </div>
     ),
 });
@@ -185,7 +185,7 @@ export function RoadClosuresClient({
         setDeleteModalConfig({
             isOpen: true,
             title: "Delete Road Advisory",
-            description: `Are you sure you want to permanently delete the road advisory for "${closure.title}" (${closure.roadName || closure.barangay || "Mapandan"})? This will remove all hazard pins and detour guidelines from the public road advisory portal.`,
+            description: `Are you sure you want to permanently delete the road advisory for "${closure.title}" (${closure.roadName || closure.barangay || "E-LGU"})? This will remove all hazard pins and detour guidelines from the public road advisory portal.`,
             onConfirm: async () => {
                 setIsDeleting(true);
                 try {
@@ -364,7 +364,7 @@ export function RoadClosuresClient({
                             <div className="flex items-center gap-2">
                                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
                                 <h3 className="text-sm sm:text-base font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
-                                    Mapandan Road Advisories Network Map
+                                    Municipal Road Advisories Network Map
                                 </h3>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -417,7 +417,7 @@ export function RoadClosuresClient({
                             No Road Closures Found
                         </h4>
                         <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                            All roads in Mapandan are currently open, or no records match your filter criteria.
+                            All roads across the municipality are currently open, or no records match your filter criteria.
                         </p>
                     </div>
                 ) : (

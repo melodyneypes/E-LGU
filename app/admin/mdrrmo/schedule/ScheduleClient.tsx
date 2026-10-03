@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 import { 
     Calendar, 
     Trash2, 
@@ -560,7 +561,7 @@ export default function ScheduleClient({
                                 required
                                 value={scheduleForm.title}
                                 onChange={(e) => setScheduleForm({ ...scheduleForm, title: e.target.value })}
-                                placeholder="e.g. Emergency Patient Transfer to Region 1 Medical Center"
+                                placeholder={`e.g. Emergency Patient Transfer to ${lguConfig.healthcare.referralHospital}`}
                                 className="h-11 w-full min-w-0 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                             />
                         </div>
@@ -663,7 +664,7 @@ export default function ScheduleClient({
                                     required
                                     value={scheduleForm.pickupLocation}
                                     onChange={(e) => setScheduleForm({ ...scheduleForm, pickupLocation: e.target.value })}
-                                    placeholder="e.g. Mapandan RHU / Barangay Poblacion"
+                                    placeholder="e.g. Municipal RHU / Barangay {{BARANGAY_NAME}}"
                                     className="h-11 w-full min-w-0 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                                 />
                             </div>
@@ -676,7 +677,7 @@ export default function ScheduleClient({
                                     required
                                     value={scheduleForm.destination}
                                     onChange={(e) => setScheduleForm({ ...scheduleForm, destination: e.target.value })}
-                                    placeholder="e.g. Pangasinan Provincial Hospital"
+                                    placeholder="e.g. {{PROVINCE_NAME}} Provincial Hospital"
                                     className="h-11 w-full min-w-0 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                                 />
                             </div>
@@ -743,7 +744,7 @@ export default function ScheduleClient({
                                 <Input
                                     value={scheduleForm.patientContact}
                                     onChange={(e) => setScheduleForm({ ...scheduleForm, patientContact: e.target.value })}
-                                    placeholder="e.g. 0917-000-1111"
+                                    placeholder="e.g. 09XX-XXX-XXXX"
                                     className="h-11 w-full min-w-0 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs font-mono"
                                 />
                             </div>

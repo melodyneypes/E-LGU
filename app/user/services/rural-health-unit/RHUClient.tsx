@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn, copyToClipboard } from "@/lib/utils";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -64,6 +65,8 @@ export function RHUClient({
     const [downloadState, setDownloadState] = React.useState<'idle' | 'downloading' | 'completed' | 'error'>('idle');
     const [progress, setProgress] = React.useState(0);
     const [showInstructions, setShowInstructions] = React.useState(false);
+    const appDownloadUrl = lguConfig.apps.apkDownloadUrl;
+    const isAppDownloadConfigured = Boolean(appDownloadUrl) && !appDownloadUrl.includes("{{");
     const [showAmbulanceModal, setShowAmbulanceModal] = React.useState(false);
     const [copiedHotline, setCopiedHotline] = React.useState<string | null>(null);
     const [loadingServiceId, setLoadingServiceId] = React.useState<string | null>(null);
@@ -71,21 +74,21 @@ export function RHUClient({
     const ambulanceFleet = (initialAmbulanceFleet.length > 0 ? initialAmbulanceFleet : [
         {
             unit: "Ambulance Unit 1 (Foton Transporter)",
-            station: "Poblacion Main Station",
+            station: "{{BARANGAY_NAME}} Main Station",
             status: "ACTIVE",
             statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
             plateNumber: "SAB-1234"
         },
         {
             unit: "Ambulance Unit 2 (Toyota Hiace)",
-            station: "Luyan South Station",
+            station: "{{BARANGAY_NAME}} Station",
             status: "ACTIVE",
             statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
             plateNumber: "SAB-5678"
         },
         {
             unit: "Ambulance Unit 3 (Barangay Response)",
-            station: "Nilombot Station",
+            station: "{{BARANGAY_NAME}} Station",
             status: "ACTIVE",
             statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
             plateNumber: "SAB-9012"
@@ -93,9 +96,9 @@ export function RHUClient({
     ]).filter((v: any) => v.status !== "INACTIVE");
 
     const dispatchHotlines = (initialDispatchHotlines.length > 0 ? initialDispatchHotlines : [
-        { name: "RHU Emergency Dispatch", number: "0917-555-0199", status: "ACTIVE" },
-        { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234", status: "ACTIVE" },
-        { name: "Municipal Health Officer", number: "0920-123-4567", status: "ACTIVE" }
+        { name: "RHU Emergency Dispatch", number: lguConfig.contact.hotlines.health, status: "ACTIVE" },
+        { name: "MDRRMO Emergency Hotline", number: lguConfig.contact.hotlines.disasterResponse, status: "ACTIVE" },
+        { name: "Municipal Health Officer", number: lguConfig.contact.hotlines.healthOfficer, status: "ACTIVE" }
     ]).filter((h: any) => h.status !== "INACTIVE");
 
     const handleHotlineCall = async (number: string) => {
@@ -107,12 +110,16 @@ export function RHUClient({
 
     const handleDownload = async () => {
         if (downloadState === 'downloading') return;
+        if (!isAppDownloadConfigured) {
+            toast.error("The Android app download is not configured.");
+            return;
+        }
         
         setDownloadState('downloading');
         setProgress(0);
         
         try {
-            const response = await fetch('/rhu-app/app-release.apk');
+            const response = await fetch(appDownloadUrl);
             if (!response.ok) throw new Error('Download failed');
             
             const contentLength = response.headers.get('content-length');
@@ -142,7 +149,7 @@ export function RHUClient({
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'rhu-app-release.apk';
+            a.download = 'lgu-rhu-app.apk';
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -263,7 +270,7 @@ export function RHUClient({
                     <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
                         <Button
                             onClick={handleDownload}
-                            disabled={downloadState === 'downloading'}
+                            disabled={downloadState === 'downloading' || !isAppDownloadConfigured}
                             style={{
                                 backgroundColor: downloadState === 'downloading' ? 'transparent' : themeColor,
                                 borderColor: themeColor,
@@ -288,7 +295,7 @@ export function RHUClient({
                                 {downloadState === 'idle' && (
                                     <>
                                         <Smartphone className="w-4 h-4" />
-                                        <span>Download App</span>
+                                        <span>{isAppDownloadConfigured ? "Download App" : "App Download Not Configured"}</span>
                                     </>
                                 )}
                                 {downloadState === 'downloading' && (
@@ -506,7 +513,7 @@ export function RHUClient({
                                     Locate the Downloaded File
                                 </h4>
                                 <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold leading-relaxed">
-                                    Tap the completed download notification or search for <code className="bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded text-primary" style={{ color: themeColor }}>rhu-app-release.apk</code> in your browser&apos;s Downloads or File Manager app.
+                                    Tap the completed download notification or search for <code className="bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded text-primary" style={{ color: themeColor }}>lgu-rhu-app.apk</code> in your browser&apos;s Downloads or File Manager app.
                                 </p>
                             </div>
                         </div>

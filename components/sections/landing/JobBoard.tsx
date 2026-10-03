@@ -56,7 +56,7 @@ export function JobBoard({ jobs = [], isMaintenanceActive = false }: { jobs: Job
                         Serve the Community
                     </h2>
                     <p className="text-slate-500 font-medium italic max-w-xl mx-auto text-xs md:text-lg">
-                        Explore immediate career opportunities within the Mapandan Municipal Government.
+                        Explore immediate career opportunities within the Municipal Government.
                     </p>
                 </div>
 
@@ -106,7 +106,7 @@ function JobCard({ job, idx, isMobile, isMaintenanceActive }: { job: Job; idx: n
                             Offline
                         </span>
                     ) : (
-                        <span className="px-2.5 md:px-4 py-1 md:py-1.5 bg-emerald-500/10 text-emerald-600 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
+                        <span className="px-2.5 md:px-4 py-1 md:py-1.5 bg-cyan-500/10 text-cyan-400 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-cyan-500/30">
                             {job.employmentType}
                         </span>
                     )}

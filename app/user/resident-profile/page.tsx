@@ -21,7 +21,7 @@ export default async function ResidentProfilePage() {
     });
 
     const settings = await getMultipleSystemSettings(["theme_color"]);
-    const themeColor = settings.get("theme_color") || "#2563eb";
+    const themeColor = settings.get("theme_color") || "#0038a8";
 
     return (
         <div className="py-6 max-w-5xl mx-auto space-y-6">

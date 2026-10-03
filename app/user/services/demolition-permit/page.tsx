@@ -20,8 +20,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 export const metadata: Metadata = {
-  title: "Demolition Permit | E-Mapandan",
-  description: "Official Municipal Demolition Permit Guidelines, Safety Protocols, and Application Requirements for Mapandan, Pangasinan.",
+  title: "Demolition Permit | E-LGU",
+  description: "Official Municipal Demolition Permit Guidelines, Safety Protocols, and Application Requirements for Municipality of E-LGU.",
 };
 
 export default function DemolitionPermitPage() {
@@ -54,7 +54,7 @@ export default function DemolitionPermitPage() {
     },
     {
       title: "Utility Disconnection Certificates",
-      desc: "Official clearance and disconnection certificate from PANELCO (electric) and Mapandan Water District / Local Waterworks.",
+      desc: "Official clearance and disconnection certificate from electric provider and Local Waterworks District.",
       copies: "1 Original each"
     },
     {
@@ -124,7 +124,7 @@ export default function DemolitionPermitPage() {
               Demolition Permit
             </h1>
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              Official municipal clearance authorizing the complete or partial dismantling, demolition, and removal of hazardous or condemned buildings and structures in Mapandan.
+              Official municipal clearance authorizing the complete or partial dismantling, demolition, and removal of hazardous or condemned buildings and structures in the Municipality of E-LGU.
             </p>
 
             <div className="pt-2 flex flex-wrap gap-3">
@@ -277,7 +277,7 @@ export default function DemolitionPermitPage() {
               Questions Regarding Demolition Clearances?
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              The Municipal Building Official and Engineering Office are located on the 2nd Floor of Mapandan Municipal Hall.
+              The Municipal Building Official and Engineering Office are located on the 2nd Floor of the Municipal Hall.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">

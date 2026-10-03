@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 interface BarangayContextType {
     selectedBarangay: string;
@@ -44,14 +45,29 @@ export function BarangayProvider({ children }: { children: React.ReactNode }) {
         const urlBarangay = searchParams.get("barangay");
         const saved = localStorage.getItem("selectedBarangay");
 
-        if (urlBarangay) {
+        const isConfiguredSelection = (value: string) =>
+            value === "All" || configuredBarangays.includes(value);
+
+        if (urlBarangay && isConfiguredSelection(urlBarangay)) {
             setSelectedBarangay(urlBarangay);
-        } else if (saved && saved !== "All") {
-            // If no URL param, but we have a saved preference, update URL
+        } else if (urlBarangay) {
+            localStorage.removeItem("selectedBarangay");
             const params = new URLSearchParams(searchParams.toString());
-            params.set("barangay", saved);
-            router.replace(`${pathname}?${params.toString()}`);
-            setSelectedBarangay(saved);
+            params.delete("barangay");
+            router.replace(`${pathname}${params.size ? `?${params.toString()}` : ""}`);
+            setSelectedBarangay("All");
+        } else if (saved && isConfiguredSelection(saved)) {
+            if (saved !== "All") {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("barangay", saved);
+                router.replace(`${pathname}?${params.toString()}`);
+                setSelectedBarangay(saved);
+            } else {
+                setSelectedBarangay("All");
+            }
+        } else if (saved) {
+            localStorage.removeItem("selectedBarangay");
+            setSelectedBarangay("All");
         }
         // Hide splash when URL settles
         setIsLoading(false);

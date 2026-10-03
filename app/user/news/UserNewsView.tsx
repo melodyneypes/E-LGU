@@ -123,7 +123,7 @@ export function UserNewsView({
             </div>
 
             <p className="text-sm md:text-lg text-slate-500 dark:text-slate-400 font-medium italic max-w-2xl leading-relaxed px-2 md:px-0">
-                Stay informed with the latest updates, achievements, and local stories from across the municipality of Mapandan.
+                Stay informed with the latest updates, achievements, and local stories from across the Municipality of E-LGU.
             </p>
 
             {/* Grid */}

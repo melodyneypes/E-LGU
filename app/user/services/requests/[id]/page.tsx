@@ -48,6 +48,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { lguMapCenter } from "@/lib/utils/lgu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -298,8 +299,8 @@ export default function RequestHubPage() {
                             setLocalLat(lat);
                             setLocalLng(lng);
                         } else {
-                            setLocalLat(16.026);
-                            setLocalLng(120.454);
+                            setLocalLat(lguMapCenter[0]);
+                            setLocalLng(lguMapCenter[1]);
                         }
                     }
 
@@ -1661,7 +1662,7 @@ export default function RequestHubPage() {
                                                         {localLat != null && localLng != null ? (
                                                             <LocationPicker lat={localLat} lng={localLng} onChange={(lat, lng) => { setLocalLat(lat); setLocalLng(lng); }} />
                                                         ) : (
-                                                            <LocationPicker lat={16.026} lng={120.454} onChange={(lat, lng) => { setLocalLat(lat); setLocalLng(lng); }} />
+                                                            <LocationPicker lat={lguMapCenter[0]} lng={lguMapCenter[1]} onChange={(lat, lng) => { setLocalLat(lat); setLocalLng(lng); }} />
                                                         )}
                                                     </div>
                                                 </div>
@@ -1864,7 +1865,7 @@ export default function RequestHubPage() {
                                                         <div className="space-y-1 sm:col-span-2 md:col-span-3">
                                                             <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Fencing Site Location</p>
                                                             <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
-                                                                {additionalData.projectAddress || (additionalData.fencingLocation?.street ? `${additionalData.fencingLocation.street}, ` : "") + `Brgy. ${additionalData.fencingLocation?.barangay || additionalData.barangay || "Mapandan"}, Mapandan, Pangasinan`}
+                                                                {additionalData.projectAddress || (additionalData.fencingLocation?.street ? `${additionalData.fencingLocation.street}, ` : "") + `Brgy. ${additionalData.fencingLocation?.barangay || additionalData.barangay || "{{BARANGAY_NAME}}"}, Municipality of E-LGU`}
                                                             </p>
                                                         </div>
                                                     </>
@@ -2257,7 +2258,7 @@ export default function RequestHubPage() {
                                                 ) : (
                                                     <p className="text-xs md:text-sm font-bold italic opacity-90 leading-relaxed tracking-tight">
                                                         &quot;{(request.status === "RELEASED" || request.status === "DELIVERED")
-                                                            ? "Registry Process Complete. Thank you for utilizing Mapandan's digital governance portal. Records successfully finalized and archived."
+                                                            ? "Registry Process Complete. Thank you for utilizing our digital governance portal. Records successfully finalized and archived."
                                                             : (request.status === "PAID"
                                                                 ? `Standard professional assessment concludes within ${request.type?.slaDays || 3} business days. Our team is currently validating your documentary evidence.`
                                                                 : (request.status === "FOR_REVISION"
@@ -2439,13 +2440,13 @@ export default function RequestHubPage() {
                                                         </div>
                                                         <div className="space-y-1">
                                                             <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Municipality & Province</p>
-                                                            <p className="text-xs md:text-lg font-bold italic uppercase">Mapandan, Pangasinan</p>
+                                                            <p className="text-xs md:text-lg font-bold italic uppercase">Municipality of E-LGU</p>
                                                         </div>
                                                     </>
                                                 ) : (
                                                     <div className="space-y-1 col-span-2">
                                                         <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Informant / Project Address</p>
-                                                        <p className="text-xs md:text-lg font-bold italic uppercase">{additionalData.informantAddress || additionalData.projectAddress || additionalData.location || "Mapandan, Pangasinan"}</p>
+                                                        <p className="text-xs md:text-lg font-bold italic uppercase">{additionalData.informantAddress || additionalData.projectAddress || additionalData.location || "Municipality of E-LGU"}</p>
                                                     </div>
                                                 )}
                                             </div>

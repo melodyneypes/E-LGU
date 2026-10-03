@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, RotateCcw } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import { lguMapCenter } from "@/lib/utils/lgu";
 
 // Dynamic imports to prevent Next.js SSR document is not defined errors
 const MapContainer = dynamic(() => import("react-leaflet").then((m) => m.MapContainer), { ssr: false });
@@ -29,7 +30,7 @@ interface RoadClosureMapPickerProps {
     ) => void;
 }
 
-const MAPANDAN_CENTER: [number, number] = [16.0271, 120.4542];
+const LGU_CENTER = lguMapCenter;
 
 // Client child component for map events & dynamic icons
 // High-contrast custom SVG crosshair cursor (Black stroke with White inner fill and red center dot)
@@ -204,7 +205,7 @@ export function RoadClosureMapPicker({
         return (
             <div className="w-full h-80 bg-slate-100 dark:bg-slate-900/50 rounded-2xl flex flex-col items-center justify-center border border-slate-200 dark:border-white/10">
                 <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
-                <p className="text-xs text-slate-500 font-semibold">Loading Mapandan Road Map...</p>
+                <p className="text-xs text-slate-500 font-semibold">Loading Municipal Road Map...</p>
             </div>
         );
     }
@@ -239,7 +240,7 @@ export function RoadClosureMapPicker({
                             {isSnapping ? (
                                 <>
                                     <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
-                                    Snapping to Mapandan road network...
+                                    Snapping to road network...
                                 </>
                             ) : (
                                 "Road Segment Snapped & Selected"
@@ -265,7 +266,7 @@ export function RoadClosureMapPicker({
                 style={{ cursor: HIGH_CONTRAST_CURSOR }}
             >
                 <MapContainer
-                    center={startLocation ? [startLocation.lat, startLocation.lng] : MAPANDAN_CENTER}
+                    center={startLocation ? [startLocation.lat, startLocation.lng] : LGU_CENTER}
                     zoom={14}
                     style={{ width: "100%", height: "100%", cursor: HIGH_CONTRAST_CURSOR }}
                     className="z-0"

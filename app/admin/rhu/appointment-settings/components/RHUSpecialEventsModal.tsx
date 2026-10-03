@@ -524,7 +524,7 @@ export function RHUSpecialEventsModal({
                                     Venue / Specific Clinic Location
                                 </Label>
                                 <Input
-                                    placeholder="e.g. Lalas Medical Clinic Covered Gymnasium"
+                                    placeholder="e.g. {{BARANGAY_NAME}} Medical Clinic Covered Gymnasium"
                                     value={eventVenue}
                                     onChange={(e) => setEventVenue(e.target.value)}
                                     className="h-11 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold"

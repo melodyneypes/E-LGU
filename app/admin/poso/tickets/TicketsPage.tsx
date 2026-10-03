@@ -310,7 +310,7 @@ export default function TicketsPage({
 
             // Branding fetch
             let logoUrl = "";
-            const brand1 = "MUNICIPALITY OF MAPANDAN";
+            const brand1 = "MUNICIPALITY OF E-LGU";
             const brand2 = "PUBLIC ORDER & SAFETY OFFICE (POSO)";
             try {
                 const sRes = await fetch("/api/settings");
@@ -342,7 +342,7 @@ export default function TicketsPage({
             doc.setFontSize(8);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(80, 80, 80);
-            doc.text("REPUBLIC OF THE PHILIPPINES | PROVINCE OF PANGASINAN", PAGE_W / 2, currentY, { align: "center" });
+            doc.text("REPUBLIC OF THE PHILIPPINES | PROVINCE OF {{PROVINCE_NAME}}", PAGE_W / 2, currentY, { align: "center" });
             currentY += 4;
 
             doc.setFontSize(11);
@@ -471,7 +471,7 @@ export default function TicketsPage({
 
             // Title Block
             sheet.mergeCells("A1:I1");
-            sheet.getCell("A1").value = "REPUBLIC OF THE PHILIPPINES - MUNICIPALITY OF MAPANDAN";
+            sheet.getCell("A1").value = "REPUBLIC OF THE PHILIPPINES - MUNICIPALITY OF E-LGU";
             sheet.getCell("A1").font = { bold: true, size: 10, color: { argb: "FF475569" } };
             sheet.getCell("A1").alignment = { horizontal: "center" };
 

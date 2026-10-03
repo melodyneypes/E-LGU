@@ -11,8 +11,8 @@
   --font-mono: var(--font-geist-mono);
 
   /* Dynamic Branding Tokens */
-  --color-primary: var(--primary-theme, #2563eb);
-  --color-ring: var(--primary-theme, #2563eb);
+  --color-primary: var(--primary-theme, #0038a8);
+  --color-ring: var(--primary-theme, #0038a8);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -51,7 +51,11 @@
 }
 
 :root {
-  --primary-theme: #2563eb;
+  --primary-theme: #0038a8;
+  --primary-theme-hover: #002b80;
+  --primary-theme-secondary: #00a3ff;
+  --primary-theme-accent: #f59e0b;
+  --color-dark: #081225;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

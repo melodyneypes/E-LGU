@@ -10,8 +10,8 @@ export default async function QueuePage() {
     const themeColor = settings.get("theme_color") || "#2563eb";
     const branding = {
         logo: settings.get("site_logo") || null,
-        word1: settings.get("brand_word_1") || "EMAPANDAN",
-        word2: settings.get("brand_word_2") || "SMART MUNICIPALITY",
+        word1: settings.get("brand_word_1") || "E-",
+        word2: settings.get("brand_word_2") || "LGU",
     };
 
     const initialQueueData = await getActiveQueueData();

@@ -4,11 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import { getPosoPenaltySettings } from "@/app/admin/poso/actions";
-import { getPosoPortalSettings } from "@/app/poso/mapandan/actions";
+import { getPosoPortalSettings } from "@/app/poso/portal/actions";
 import PosoSettingsClient from "./PosoSettingsClient";
 
 export const metadata: Metadata = {
-    title: "POSO Settings | Mapandan Portal",
+    title: "POSO Settings | LGU Portal",
     description: "System settings, late payment surcharges, and public portal office info configuration for POSO.",
 };
 

@@ -10,7 +10,7 @@ import BploFeedbackSkeleton from "./components/BploFeedbackSkeleton";
 
 export const metadata: Metadata = {
     title: "Citizen Feedback | BPLO Licensing",
-    description: "Monitor public satisfaction levels, review star ratings, and read suggestions for Mapandan Business Permit services.",
+    description: "Monitor public satisfaction levels, review star ratings, and read suggestions for {{LGU_NAME}} Business Permit services.",
 };
 
 export default async function BploFeedbackPage(props: {

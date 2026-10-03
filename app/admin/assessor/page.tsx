@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "Municipal Assessor Hub | Mapandan Portal",
+    title: "Municipal Assessor Hub | {{LGU_NAME}} Portal",
     description: "Official administrative dashboard for Real Property Tax assessment, property declaration evaluations, and field inspections.",
 };
 

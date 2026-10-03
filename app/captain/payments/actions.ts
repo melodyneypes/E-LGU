@@ -23,7 +23,7 @@ export async function getCaptainPaymentsLedger(params: {
             return { success: false, error: "Unauthorized" };
         }
 
-        const managedBarangay = user?.managedBarangay || params.barangay || "Apaya";
+        const managedBarangay = user?.managedBarangay || params.barangay || "{{BARANGAY_NAME}}";
         const page = params.page || 1;
         const limit = params.limit || 10;
         const skip = (page - 1) * limit;

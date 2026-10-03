@@ -8,6 +8,8 @@ import {
     DEFAULT_CEDULA_LAYOUT,
     DEFAULT_CEDULA_FIELDS
 } from "@/lib/cedula-template-config";
+import lguConfig from "@/config/lgu.config.json";
+import { sanitizeLguText } from "@/lib/utils/lgu";
 import { saveCedulaLayoutAction, resetCedulaLayoutAction } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -476,7 +478,7 @@ export default function CedulaTemplateStudioClient({
                             {showBackground && (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
-                                    src={layout.bgImageUrl || "/images/cedula-template.png"}
+                                    src={lguConfig.assets.contentPlaceholder}
                                     alt="Cedula Reference Form"
                                     style={{ opacity: layout.bgOpacity / 100 }}
                                     className="absolute inset-0 w-full h-full object-fill pointer-events-none z-0"
@@ -516,7 +518,7 @@ export default function CedulaTemplateStudioClient({
                                         )}
                                         title={`${field.label} (Click to select, drag to move)`}
                                     >
-                                        {field.sampleValue || field.label}
+                                        {sanitizeLguText(field.sampleValue || field.label)}
                                     </div>
                                 );
                             })}
@@ -1060,7 +1062,7 @@ export default function CedulaTemplateStudioClient({
                                 margin: 0 !important;
                                 padding: 0 !important;
                                 ${layout.showBgInPrint
-                                    ? `background-image: url('${layout.bgImageUrl || "/images/cedula-template.png"}'); background-size: 100% 100%; background-repeat: no-repeat;`
+                                    ? `background-image: url('${lguConfig.assets.contentPlaceholder}'); background-size: 100% 100%; background-repeat: no-repeat;`
                                     : "background: white;"
                                 }
                                 z-index: 999999 !important;
@@ -1093,7 +1095,7 @@ export default function CedulaTemplateStudioClient({
                         <div style={{ position: "relative", width: "100%", height: "100%", overflow: "visible" }}>
                             {Object.values(layout.fields).map(field => {
                                 if (!field.visible) return null;
-                                const text = field.sampleValue || "";
+                                const text = sanitizeLguText(field.sampleValue || "");
 
                                 return (
                                     <div

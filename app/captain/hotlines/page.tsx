@@ -28,7 +28,7 @@ export default async function CaptainHotlinesPage(props: {
         redirect("/auth/login");
     }
 
-    const managedBarangay = user?.managedBarangay || "Apaya";
+    const managedBarangay = user?.managedBarangay || "{{BARANGAY_NAME}}";
     const params = await props.searchParams;
     const search = params.search || "";
     const category = params.category || "All";

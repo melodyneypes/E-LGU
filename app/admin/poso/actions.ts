@@ -332,8 +332,8 @@ export async function updatePosoPortalInfoSettings(data: {
             }),
         ]);
 
-        revalidatePath("/poso/mapandan");
-        revalidatePath("/poso/mapandan/violations");
+        revalidatePath("/poso/portal");
+        revalidatePath("/poso/portal/violations");
         revalidatePath("/admin/poso/settings");
         return { success: true };
     } catch (error: any) {
@@ -849,7 +849,7 @@ export async function processTicketSettlement(id: string) {
             officerName: ticket.officerName || null,
             isImpounded: ticket.isImpounded || false,
             vehicleClass: ticket.vehicleClass || null,
-            impoundYard: ticket.isImpounded ? (ticket.impoundYard || "Mapandan POSO Impounding Facility") : null,
+            impoundYard: ticket.isImpounded ? (ticket.impoundYard || "Municipal POSO Impounding Facility") : null,
             impoundedAt: ticket.isImpounded ? (ticket.impoundedAt || ticket.dateTime) : null,
             impoundFee: impoundFee,
             violations: (ticket.details || []).map((d: any) => ({
@@ -1030,7 +1030,7 @@ export async function processMultipleTicketsSettlement(ticketIds: string[]) {
                 impoundDetails.push({
                     ticketNo: t.ticketNo,
                     vehicleClass: t.vehicleClass || "Standard",
-                    impoundYard: t.impoundYard || "Mapandan POSO Impounding Facility",
+                    impoundYard: t.impoundYard || "Municipal POSO Impounding Facility",
                     impoundFee: impFee,
                 });
             }
@@ -1311,7 +1311,7 @@ export async function updateTicketImpoundStatus({
             data: {
                 isImpounded,
                 vehicleClass: vehicleClass || null,
-                impoundYard: isImpounded ? (impoundYard || "Mapandan POSO Impounding Yard") : null,
+                impoundYard: isImpounded ? (impoundYard || "Municipal POSO Impounding Facility") : null,
                 impoundedAt: isImpounded ? new Date() : null,
                 impoundFee: isImpounded ? (impoundFee || 0) : 0,
             },

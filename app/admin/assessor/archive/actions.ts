@@ -222,7 +222,7 @@ export async function getArchivedAssessorRecords(params?: {
                 "Walk-in Declarant";
 
             const beneficiaryName = rawAddData.beneficiaryName || rawAddData.administrator || "";
-            const barangayName = rawAddData.barangay || rawSnapshot.barangay || "Mapandan";
+            const barangayName = rawAddData.barangay || rawSnapshot.barangay || "{{LGU_NAME}}";
             const street = rawAddData.street || rawAddData.propertyAddress || "";
 
             const propertyKindName = rawAddData.propertyKind || (rawAddData.propertyType ? String(rawAddData.propertyType).toUpperCase() : "LAND");
@@ -414,7 +414,7 @@ export async function createArchivedAssessorRecord(formData: FormData) {
         const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
         const email = (formData.get("email") as string)?.trim() || "";
 
-        const barangay = (formData.get("barangay") as string)?.trim() || "Poblacion";
+        const barangay = (formData.get("barangay") as string)?.trim() || "{{BARANGAY_NAME}}";
         const street = (formData.get("street") as string)?.trim() || "";
 
         const propertyKind = (formData.get("propertyKind") as string)?.trim() || "LAND";
@@ -527,7 +527,7 @@ export async function createArchivedAssessorRecord(formData: FormData) {
             email,
             barangay,
             street,
-            propertyAddress: [street, `Brgy. ${barangay}`, "Mapandan, Pangasinan"].filter(Boolean).join(", "),
+            propertyAddress: [street, `Brgy. ${barangay}`, "{{LGU_NAME}}, {{PROVINCE_NAME}}"].filter(Boolean).join(", "),
             propertyKind,
             classification,
             propertyType: classification,
@@ -717,7 +717,7 @@ export async function updateArchivedAssessorRecord(formData: FormData) {
         const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
         const email = (formData.get("email") as string)?.trim() || "";
 
-        const barangay = (formData.get("barangay") as string)?.trim() || "Poblacion";
+        const barangay = (formData.get("barangay") as string)?.trim() || "{{BARANGAY_NAME}}";
         const street = (formData.get("street") as string)?.trim() || "";
 
         const propertyKind = (formData.get("propertyKind") as string)?.trim() || "LAND";
@@ -873,7 +873,7 @@ export async function updateArchivedAssessorRecord(formData: FormData) {
             email,
             barangay,
             street,
-            propertyAddress: [street, `Brgy. ${barangay}`, "Mapandan, Pangasinan"].filter(Boolean).join(", "),
+            propertyAddress: [street, `Brgy. ${barangay}`, "{{LGU_NAME}}, {{PROVINCE_NAME}}"].filter(Boolean).join(", "),
             propertyKind,
             classification,
             propertyType: classification,

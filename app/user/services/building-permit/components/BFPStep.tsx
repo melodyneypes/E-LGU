@@ -107,7 +107,7 @@ export function BFPStep({
                 Municipal Treasury Queue Ticket
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-medium">
-                Present this QR code to the Front Desk staff or Kiosk scanner upon arriving at Mapandan Town Hall.
+                Present this QR code to the Front Desk staff or Kiosk scanner upon arriving at the Municipal Town Hall.
               </DialogDescription>
             </DialogHeader>
 
@@ -310,7 +310,7 @@ export function BFPStep({
                       </div>
 
                       <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                        Proceed to the <strong>Municipal Treasury Office</strong> at Mapandan Town Hall. Present your queue ticket and QR code to the Front Desk, and settle your payment in cash at the Treasury counter.
+                        Proceed to the <strong>Municipal Treasury Office</strong> at the Municipal Town Hall. Present your queue ticket and QR code to the Front Desk, and settle your payment in cash at the Treasury counter.
                       </p>
 
                       {/* Active Queue Ticket Box if generated */}

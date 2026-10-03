@@ -258,7 +258,7 @@ export async function POST(request: Request) {
             data: { status: "PAID", isPaid: true, updatedAt: new Date() },
           });
           revalidatePath("/admin/poso/tickets");
-          revalidatePath("/poso/mapandan");
+          revalidatePath("/poso/portal");
         } catch (tErr) {
           console.warn("[PayMongo Webhook] TicketHeader sync error:", tErr);
         }
@@ -392,7 +392,7 @@ export async function POST(request: Request) {
               data: { status: "PAID", isPaid: true, updatedAt: new Date() },
             });
             revalidatePath("/admin/poso/tickets");
-            revalidatePath("/poso/mapandan");
+            revalidatePath("/poso/portal");
           } catch (tErr) {
             console.warn("[PayMongo Webhook] TicketHeader sync error:", tErr);
           }
@@ -487,7 +487,7 @@ export async function POST(request: Request) {
             data: { status: "PAID", isPaid: true, updatedAt: new Date() },
           });
           revalidatePath("/admin/poso/tickets");
-          revalidatePath("/poso/mapandan");
+          revalidatePath("/poso/portal");
         } catch (tErr) {
           console.warn("[PayMongo Webhook] TicketHeader sync error:", tErr);
         }

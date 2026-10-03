@@ -54,8 +54,8 @@ export default async function AccountableFormsPage() {
                 }}
                 settings={{
                     logoUrl: settings.get("site_logo") || null,
-                    brandWord1: settings.get("brand_word_1") || "Municipality of",
-                    brandWord2: settings.get("brand_word_2") || "Mapandan",
+                    brandWord1: settings.get("brand_word_1") || "E-",
+                    brandWord2: settings.get("brand_word_2") || "LGU",
                     themeColor: settings.get("theme_color") || "#2563eb",
                     treasurerName: settings.get("municipal_treasurer_name") || "Municipal Treasurer"
                 }}

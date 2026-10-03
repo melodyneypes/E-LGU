@@ -15,7 +15,7 @@ interface CaptainTourismHeaderProps {
 export function CaptainTourismHeader({
     session,
     themeColor,
-    managedBarangay = "Apaya",
+    managedBarangay = "{{BARANGAY_NAME}}",
 }: CaptainTourismHeaderProps) {
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);

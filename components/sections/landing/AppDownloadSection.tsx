@@ -43,7 +43,7 @@ export function AppDownloadSection({ themeColor, googlePlayUrl, appStoreUrl, apk
         {
             platform: "Android Device",
             store: "Google Play Store",
-            description: "Install the official E-Mapandan app from Google Play for automatic updates and secure transactions.",
+            description: "Install the official E-LGU app from Google Play for automatic updates and secure transactions.",
             icon: (
                 <svg className="w-8 h-8 transition-colors" style={{ color: themeColor || "var(--primary-theme)" }} viewBox="0 0 24 24" fill="currentColor">
                     <path d="M5,3.06C5,3 5.04,3 5.08,3.03L15.93,12.06L5.08,21.09C5.04,21.12 5,21.11 5,21.06V3.06M16.9,12.87L19.46,14.3C20.19,14.71 20.19,15.77 19.46,16.18L16.9,17.61L16.15,12.87M17.84,11.5L20.4,12.93C21.13,13.34 21.13,14.4 20.4,14.81L17.84,16.24L17.09,11.5M15.93,12.06L5.08,3.03C5.04,3 5,3.04 5,3.08V11.5L15.93,12.06Z" />
@@ -57,7 +57,7 @@ export function AppDownloadSection({ themeColor, googlePlayUrl, appStoreUrl, apk
         {
             platform: "iOS Device",
             store: "Apple App Store",
-            description: "Install the premium Apple edition of E-Mapandan optimized specifically for iPhone and iPad devices.",
+            description: "Install the premium Apple edition of E-LGU optimized specifically for iPhone and iPad devices.",
             icon: (
                 <svg className="w-8 h-8 transition-colors" style={{ color: themeColor || "var(--primary-theme)" }} viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.71,19.5C17.88,20.74 17,21.95 15.66,21.97C14.32,22 13.89,21.18 12.37,21.18C10.84,21.18 10.37,21.95 9.1,22C7.79,22.05 6.8,20.68 5.96,19.47C4.25,17 2.94,12.45 4.7,9.39C5.57,7.87 7.13,6.91 8.82,6.88C10.1,6.86 11.32,7.75 12.11,7.75C12.89,7.75 14.37,6.68 15.92,6.84C16.57,6.87 18.39,7.1 19.56,8.82C19.47,8.88 17.39,10.1 17.41,12.63C17.44,15.65 20.06,16.66 20.1,16.67C20.08,16.74 19.67,18.11 18.71,19.5M15.97,4.17C16.63,3.37 17.07,2.28 16.95,1C16,1.04 14.9,1.6 14.24,2.38C13.68,3.04 13.19,4.14 13.34,5.39C14.39,5.47 15.4,4.88 15.97,4.17Z" />
@@ -96,7 +96,7 @@ export function AppDownloadSection({ themeColor, googlePlayUrl, appStoreUrl, apk
                     </h2>
                 </div>
                 <div className="hidden md:flex items-center gap-2 text-slate-400 font-bold uppercase tracking-widest text-[9px] italic bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 px-4 py-2 rounded-full shadow-sm">
-                    <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
                     Official Government App Distribution
                 </div>
             </div>
@@ -151,7 +151,7 @@ function AppCard({ app, themeColor, isMobile }: { app: any; themeColor?: string;
                         ? "bg-slate-50 text-slate-400 border-slate-200/50 dark:bg-white/5 dark:text-slate-400 dark:border-white/5"
                         : app.badge === "Direct Download"
                             ? "bg-orange-500/10 text-orange-500 border-orange-500/20"
-                            : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
                 }`}>
                     {app.badge}
                 </span>

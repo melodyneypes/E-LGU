@@ -102,7 +102,7 @@ export function PrivacyPolicyClient({ themeColor }: PrivacyPolicyClientProps) {
                                 1. Scope of Personal Data Collected
                             </h3>
                             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium italic pl-3.5">
-                                The Municipal Government of Mapandan collects personal and corporate data required for online community tax certificates (Cedula), civil registry filings, and business permits. This includes full name, birth date, contact number, complete address, occupation, tax details, corporate registration copies, government IDs, and declared annual income or gross capitalization.
+                                The Municipal Government of E-LGU collects personal and corporate data required for online community tax certificates (Cedula), civil registry filings, and business permits. This includes full name, birth date, contact number, complete address, occupation, tax details, corporate registration copies, government IDs, and declared annual income or gross capitalization.
                             </p>
                         </div>
 
@@ -122,7 +122,7 @@ export function PrivacyPolicyClient({ themeColor }: PrivacyPolicyClientProps) {
                                 3. Safety Safeguards and Retention Policies
                             </h3>
                             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium italic pl-3.5">
-                                We employ modern encryption protocols, access permissions, and periodic logs to protect your files from unauthorized breaches. Database records are securely archived inside Mapandan LGU servers in accordance with national archival laws for local audit and validation cycles.
+                                We employ modern encryption protocols, access permissions, and periodic logs to protect your files from unauthorized breaches. Database records are securely archived inside E-LGU servers in accordance with national archival laws for local audit and validation cycles.
                             </p>
                         </div>
 

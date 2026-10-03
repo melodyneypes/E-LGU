@@ -107,7 +107,7 @@ export default async function MayorNewsPage(props: {
                             Municipal News
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
-                            Official news, press releases, and public interest stories from Mapandan.
+                            Official news, press releases, and public interest stories across the municipality.
                         </p>
                     </div>
                 </div>

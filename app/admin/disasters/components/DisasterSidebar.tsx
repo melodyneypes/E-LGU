@@ -42,7 +42,7 @@ export function DisasterSidebar() {
 
     const handleAddNewZone = async () => {
         setIsAdding(true);
-        // Default polygon (Square) near Mapandan center
+        // Default polygon (Square) near {{LGU_NAME}} center
         const defaultZone = {
             type: "New Disaster Layer",
             typeColor: "#3b82f6", // Blue

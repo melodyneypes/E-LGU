@@ -242,7 +242,7 @@ export function AddResidentModal() {
                             <div className="p-2.5 bg-primary rounded-2xl shadow-lg shadow-primary/20">
                                 <User className="w-6 h-6 text-white" />
                             </div>
-                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic">E-Mapandan</h2>
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic">E-LGU</h2>
                         </div>
 
                         <div className="space-y-4">

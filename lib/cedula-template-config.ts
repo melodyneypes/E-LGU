@@ -1,3 +1,5 @@
+import lguConfig from "@/config/lgu.config.json";
+
 /**
  * Cedula Template & Layout Configuration Definitions
  * Coordinate system is relative percentage (0 - 100%)
@@ -57,7 +59,7 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         fontWeight: "bold",
         textAlign: "left",
         visible: true,
-        sampleValue: "MAPANDAN, PANGASINAN"
+        sampleValue: "MUNICIPALITY OF {{LGU_NAME}}"
     },
     dateIssued: {
         id: "dateIssued",
@@ -136,7 +138,7 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         fontWeight: "bold",
         textAlign: "left",
         visible: true,
-        sampleValue: "BRGY. POBLACION, MAPANDAN, PANGASINAN"
+        sampleValue: "BRGY. {{BARANGAY_NAME}}, MUNICIPALITY OF {{LGU_NAME}}"
     },
     sexMale: {
         id: "sexMale",
@@ -253,7 +255,7 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         fontWeight: "bold",
         textAlign: "left",
         visible: true,
-        sampleValue: "DAGUPAN CITY, PANGASINAN"
+        sampleValue: "{{LGU_NAME}}, {{PROVINCE_NAME}}"
     },
     height: {
         id: "height",
@@ -472,6 +474,6 @@ export const DEFAULT_CEDULA_LAYOUT: CedulaLayoutSettings = {
     topSpaceMm: 0,
     bgOpacity: 85,
     showBgInPrint: true,
-    bgImageUrl: "/images/cedula-template.png",
+    bgImageUrl: lguConfig.assets.contentPlaceholder,
     fields: DEFAULT_CEDULA_FIELDS
 };

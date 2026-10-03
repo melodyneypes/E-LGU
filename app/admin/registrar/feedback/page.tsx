@@ -10,7 +10,7 @@ import RegistrarFeedbackSkeleton from "./components/RegistrarFeedbackSkeleton";
 
 export const metadata: Metadata = {
     title: "Citizen Feedback | Civil Registrar",
-    description: "Monitor public satisfaction levels, review star ratings, and evaluate citizen suggestions for Mapandan Civil Registry and PSA services.",
+    description: "Monitor public satisfaction levels, review star ratings, and evaluate citizen suggestions for Municipal Civil Registry and PSA services.",
 };
 
 export default async function RegistrarFeedbackPage(props: {

@@ -39,7 +39,7 @@ interface OrdinancesSectionProps {
 function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionProps) {
     const searchParams = useSearchParams();
     const typeParam = searchParams?.get("type");
-    const activeTheme = themeColor || "#2563eb";
+    const activeTheme = themeColor || "#0038a8";
 
     // Filter states
     const [search, setSearch] = useState("");
@@ -146,7 +146,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                         >
                             <Scale className="w-3 h-3" style={{ color: activeTheme }} />
                             <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: activeTheme }}>
-                                LGU MAPANDAN
+                                E-LGU LEGISLATIVE PORTAL
                             </span>
                         </div>
                         <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">
@@ -177,7 +177,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                 >
                                     <Scale className="w-3.5 h-3.5" style={{ color: activeTheme }} />
                                     <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: activeTheme }}>
-                                        LGU MAPANDAN
+                                        E-LGU LEGISLATIVE PORTAL
                                     </span>
                                 </div>
                                 <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">
@@ -302,7 +302,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                             <span className={cn(
                                                 "px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider border leading-none",
                                                 doc.status.includes("ACTIVE") || doc.status.includes("ENFORCED")
-                                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                                    ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
                                                     : doc.status.includes("PENDING")
                                                         ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                                                         : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
@@ -435,7 +435,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                     <span className={cn(
                                         "px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border leading-none shadow-sm",
                                         selectedDoc?.status.includes("ACTIVE") || selectedDoc?.status.includes("ENFORCED")
-                                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                            ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
                                             : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                                     )}>
                                         {selectedDoc?.status}

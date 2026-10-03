@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import { DisasterProvider } from "./providers/DisasterProvider";
 import { HouseholdProvider, Household } from "../households/providers/HouseholdProvider";
@@ -36,7 +38,7 @@ export function DisasterWorkspace({
 { }
 { }
                                 {/* eslint-disable-next-line react/no-unescaped-entities */}
-                                Command center for Mapandan's multi-hazard spatial analysis.
+                                Command center for {sanitizeLguText("{{LGU_NAME}}")}'s multi-hazard spatial analysis.
                             </p>
                         </div>
 

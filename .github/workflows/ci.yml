@@ -1,4 +1,4 @@
-name: CI - Mapandan Portal
+name: CI - {{LGU_NAME}} Portal
 
 on:
   push:

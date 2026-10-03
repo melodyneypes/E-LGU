@@ -6,6 +6,7 @@ import { MapPin, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import lguConfig from "@/config/lgu.config.json";
 
 interface GeoJSONData {
     type: "Feature" | "FeatureCollection" | "Point" | "MultiPoint" | "LineString" | "MultiLineString" | "Polygon" | "MultiPolygon" | "GeometryCollection";
@@ -51,8 +52,8 @@ function MapEvents({ onMapClick }: { onMapClick: (lat: number, lng: number) => v
 }
 
 export default function LocationPickerInner({
-    initialLat = 16.1158,
-    initialLng = 119.7997,
+    initialLat = lguConfig.map.latitude ?? 0,
+    initialLng = lguConfig.map.longitude ?? 0,
     value,
     onSelect,
     onClose,
@@ -62,12 +63,12 @@ export default function LocationPickerInner({
     const [position, setPosition] = useState<[number, number] | null>(
         value ? [value.lat, value.lng] : (compact ? null : [initialLat, initialLng])
     );
-    const [MapandanBorder, setMapandanBorder] = useState<GeoJSONData | null>(null);
+    const [lguBorder, setLguBorder] = useState<GeoJSONData | null>(null);
 
     useEffect(() => {
-        fetch("/mapandan-border.json")
+        fetch(lguConfig.map.boundaryFile)
             .then(res => res.json())
-            .then(data => setMapandanBorder(data))
+            .then(data => setLguBorder(data))
             .catch(err => console.error("Failed to load map borders:", err));
     }, []);
 
@@ -105,9 +106,9 @@ export default function LocationPickerInner({
                         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     />
 
-                    {MapandanBorder && (
+                    {lguBorder && (
                         <GeoJSON
-                            data={MapandanBorder}
+                            data={lguBorder}
                             style={{
                                 color: "#3b82f6",
                                 weight: 2,
@@ -167,9 +168,9 @@ export default function LocationPickerInner({
                         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     />
 
-                    {MapandanBorder && (
+                    {lguBorder && (
                         <GeoJSON
-                            data={MapandanBorder}
+                            data={lguBorder}
                             style={{
                                 color: "#3b82f6",
                                 weight: 2,

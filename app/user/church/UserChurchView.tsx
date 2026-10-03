@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { lguMapCenter } from "@/lib/utils/lgu";
 
 interface UserChurchViewProps {
     info: any;
@@ -181,7 +182,7 @@ export function UserChurchView({
                                     <SelectValue placeholder="Select Parish Sector" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-slate-200 dark:border-white/10 rounded-xl">
-                                    <SelectItem value="global" className="font-black uppercase italic text-[9px] md:text-[10px] tracking-widest cursor-pointer hover:text-primary">Mapandan Main Parish</SelectItem>
+                                    <SelectItem value="global" className="font-black uppercase italic text-[9px] md:text-[10px] tracking-widest cursor-pointer hover:text-primary">Central Main Parish</SelectItem>
                                     {availableBarangays.map((b) => (
                                         <SelectItem key={b} value={b} className="font-black uppercase italic text-[9px] md:text-[10px] tracking-widest cursor-pointer hover:text-primary">
                                             Sector: {b}
@@ -203,7 +204,7 @@ export function UserChurchView({
                                         {info.name || (info.barangay ? `${info.barangay} Sector` : "Holy Rosary Parish")}
                                     </h1>
                                     <p className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.4em] ml-1 italic" style={{ color: info.themeColor || '#2563eb' }}>
-                                        {info.barangay ? `Community Outreach • ${info.barangay}` : "The Mother Parish of Mapandan"}
+                                        {info.barangay ? `Community Outreach • ${info.barangay}` : "The Central Mother Parish"}
                                     </p>
                                 </div>
                             </div>
@@ -413,7 +414,7 @@ export function UserChurchView({
                                 scrolling="no"
                                 marginHeight={0}
                                 marginWidth={0}
-                                src={`https://maps.google.com/maps?q=${info.latitude || 16.0354},${info.longitude || 120.4431}&hl=en&z=15&output=embed`}
+                                src={`https://maps.google.com/maps?q=${info.latitude ?? lguMapCenter[0]},${info.longitude ?? lguMapCenter[1]}&hl=en&z=15&output=embed`}
                                 className="w-full h-full"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent pointer-events-none" />
@@ -437,4 +438,3 @@ export function UserChurchView({
         </div>
     );
 }
-

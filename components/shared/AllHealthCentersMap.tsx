@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Building2, MapPin, CheckCircle2 } from "lucide-react";
 import { renderToString } from "react-dom/server";
+import { lguMapCenter } from "@/lib/utils/lgu";
 
 interface CenterItem {
     id: string;
@@ -38,7 +39,7 @@ const getCenterIcon = (isSelected: boolean, centerName: string) => {
                     }`}
                 >
                     <Building2 className={`w-3.5 h-3.5 ${isSelected ? "text-white" : "text-rose-400"}`} />
-                    <span className="truncate max-w-[110px]">{centerName.replace(/Rural Health Unit|Main|Health Center|\(RHU\)|\(Poblacion\)/gi, "").trim() || centerName}</span>
+                    <span className="truncate max-w-[110px]">{centerName.replace(/Rural Health Unit|Main|Health Center|\(RHU\)/gi, "").trim() || centerName}</span>
                 </div>
             </div>
         ),
@@ -57,20 +58,8 @@ function ChangeView({ center }: { center: [number, number] }) {
 
 export default function AllHealthCentersMap({ centers, selectedCenterId, onSelectCenter }: AllHealthCentersMapProps) {
     const processedCenters = centers.map((center) => {
-        let lat = center.latitude || 16.0264;
-        let lng = center.longitude || 120.4537;
-
-        const lower = center.name.toLowerCase();
-        if (lower.includes("lalas") && (lat === 16.025 || lat === 16.0272 || lat === 16.0264)) {
-            lat = 16.0235;
-            lng = 120.4475;
-        } else if (lower.includes("torres")) {
-            lat = 16.0380;
-            lng = 120.4580;
-        } else if (lower.includes("aplaya")) {
-            lat = 16.0150;
-            lng = 120.4420;
-        }
+        const lat = center.latitude ?? lguMapCenter[0];
+        const lng = center.longitude ?? lguMapCenter[1];
 
         return {
             ...center,
@@ -82,8 +71,8 @@ export default function AllHealthCentersMap({ centers, selectedCenterId, onSelec
     const activeCenter = processedCenters.find((c) => c.id === selectedCenterId) || processedCenters[0] || {
         id: "main-rhu",
         name: "Main Rural Health Unit (RHU)",
-        lat: 16.0264,
-        lng: 120.4537
+        lat: lguMapCenter[0],
+        lng: lguMapCenter[1]
     };
 
     const activePosition: [number, number] = [activeCenter.lat, activeCenter.lng];
@@ -119,7 +108,7 @@ export default function AllHealthCentersMap({ centers, selectedCenterId, onSelec
                                 <div className="p-2 space-y-2 text-center min-w-[160px]">
                                     <div className="space-y-0.5">
                                         <p className="text-xs font-black uppercase text-slate-900 italic leading-tight">{center.name}</p>
-                                        <p className="text-[9px] text-slate-500 font-semibold">{center.location || "Mapandan, Pangasinan"}</p>
+                                        <p className="text-[9px] text-slate-500 font-semibold">{center.location || "Municipality of E-LGU"}</p>
                                     </div>
                                     <button
                                         type="button"
@@ -144,7 +133,7 @@ export default function AllHealthCentersMap({ centers, selectedCenterId, onSelec
 
             <div className="absolute bottom-3 left-3 z-[1000] px-3 py-1.5 bg-slate-900/90 backdrop-blur-md rounded-xl border border-white/10 shadow-lg pointer-events-none">
                 <p className="text-[8.5px] font-black uppercase tracking-widest text-slate-300 italic flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> Mapandan Health Centers ({processedCenters.length} Locations)
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> Municipal Health Centers ({processedCenters.length} Locations)
                 </p>
             </div>
         </div>

@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import { useAnnouncements } from "../providers/AnnouncementProvider";
 import { useAnnouncementForm } from "../hooks/useAnnouncementForm";
@@ -178,7 +180,7 @@ export function AddAnnouncementModal() {
                                         <Tag className="w-2.5 h-2.5" />
                                         {category}
                                     </div>
-                                    <span className="text-slate-500">Mapandan Portal</span>
+                                    <span className="text-slate-500">{sanitizeLguText("{{LGU_NAME}}")} Portal</span>
                                 </div>
                             </div>
                         </div>

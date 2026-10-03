@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect, useTransition } from "react";
 import { useSession } from "next-auth/react";
@@ -38,12 +39,7 @@ import { cn } from "@/lib/utils";
 import { searchResidents } from "@/app/admin/actions";
 import { registerRHUWalkInConsultation, getRHUHealthCenters } from "../actions";
 
-const MAPANDAN_BARANGAYS = [
-    "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral",
-    "Golden", "Guesang", "Imante", "Lalas", "Nilombot",
-    "Pias", "Poblacion", "Primicias", "Santa Maria", "Torres"
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 const CHECKUP_OPTIONS = [
     "General Consultation",
     "Return Patient / Follow-up",
@@ -102,7 +98,7 @@ export function RHUWalkInModal({
     const [email, setEmail] = useState("");
     const [houseNumber, setHouseNumber] = useState("");
     const [street, setStreet] = useState("");
-    const [barangay, setBarangay] = useState("Poblacion");
+    const [barangay, setBarangay] = useState("{{BARANGAY_NAME}}");
     const [philhealthNumber, setPhilhealthNumber] = useState("");
 
     // Consultation fields
@@ -218,7 +214,7 @@ export function RHUWalkInModal({
         setEmail(res.email || "");
         setHouseNumber(res.houseNumber || "");
         setStreet(res.street || "");
-        setBarangay(res.barangay || "Poblacion");
+        setBarangay(res.barangay || "{{BARANGAY_NAME}}");
         setPhilhealthNumber(res.philhealthNumber || "");
 
         if (res.dateOfBirth) {
@@ -246,7 +242,7 @@ export function RHUWalkInModal({
         setEmail("");
         setHouseNumber("");
         setStreet("");
-        setBarangay("Poblacion");
+        setBarangay("{{BARANGAY_NAME}}");
         setPhilhealthNumber("");
     };
 
@@ -360,7 +356,7 @@ export function RHUWalkInModal({
                 </style>
             </head>
             <body>
-                <div class="header">Municipality of Mapandan</div>
+                <div class="header">Municipality of {{LGU_NAME}}</div>
                 <div class="sub">Rural Health Unit (RHU) • Triage Ticket</div>
                 <div class="ticket-box">
                     <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px;">YOUR QUEUE NUMBER</div>
@@ -536,7 +532,7 @@ export function RHUWalkInModal({
                                                             {res.firstName} {res.middleName ? `${res.middleName[0]}. ` : ""}{res.lastName} {res.suffix || ""}
                                                         </h4>
                                                         <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400">
-                                                            <span>📍 Brgy. {res.barangay || "Mapandan"}</span>
+                                                            <span>📍 Brgy. {res.barangay || "{{LGU_NAME}}"}</span>
                                                             {res.contactNumber && <span>• 📞 {res.contactNumber}</span>}
                                                         </div>
                                                     </div>
@@ -695,7 +691,7 @@ export function RHUWalkInModal({
                                                 <SelectValue placeholder="Select Barangay" />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl max-h-48">
-                                                {MAPANDAN_BARANGAYS.map((b) => (
+                                                {LGU_BARANGAYS.map((b) => (
                                                     <SelectItem key={b} value={b}>Brgy. {b}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -706,7 +702,7 @@ export function RHUWalkInModal({
                                         <Input
                                             value={contactNumber}
                                             onChange={(e) => setContactNumber(e.target.value)}
-                                            placeholder="09171234567"
+                                            placeholder="09XX-XXX-XXXX"
                                             className="h-9 text-xs rounded-xl"
                                         />
                                     </div>

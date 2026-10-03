@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import lguConfig from "../config/lgu.config.json";
 
 const prisma = new PrismaClient();
 
@@ -29,8 +30,8 @@ async function main() {
   const settings = [
     { key: "maintenance_mode", value: "false", description: "Toggle landing page maintenance mode" },
     { key: "kiosk_maintenance_mode", value: "false", description: "Toggle kiosk maintenance mode" },
-    { key: "brand_word_1", value: "E", description: "First part of the system brand name" },
-    { key: "brand_word_2", value: "Mapandan", description: "Second part of the system brand name" },
+    { key: "brand_word_1", value: "E-", description: "First part of the system brand name" },
+    { key: "brand_word_2", value: "LGU", description: "Second part of the system brand name" },
     { key: "theme_color", value: "#2563eb", description: "Primary branding theme color (Hex)" },
     { key: "site_logo", value: "", description: "URL to the system navigation logo" },
 
@@ -54,19 +55,19 @@ async function main() {
     { key: "app_apk_download_url", value: "", description: "Direct APK Link for Mobile App" },
 
     // Treasury Details
-    { key: "gcash_account_name", value: "MUNICIPALITY OF MAPANDAN", description: "Official GCash receiver name" },
-    { key: "gcash_account_number", value: "0917-123-4567", description: "Official GCash number" },
+    { key: "gcash_account_name", value: lguConfig.payments.gcashAccountName, description: "Official GCash receiver name" },
+    { key: "gcash_account_number", value: lguConfig.payments.gcashAccountNumber, description: "Official GCash number" },
     { key: "gcash_qr_url", value: "", description: "URL to GCash payment QR image" },
-    { key: "bank_name", value: "LANDBANK OF THE PHILIPPINES", description: "Official bank partner name" },
-    { key: "bank_account_name", value: "MUNICIPALITY OF MAPANDAN", description: "Official bank account name" },
-    { key: "bank_account_number", value: "0541-2345-67", description: "Official bank account number" },
+    { key: "bank_name", value: lguConfig.payments.bankName, description: "Official bank partner name" },
+    { key: "bank_account_name", value: lguConfig.payments.bankAccountName, description: "Official bank account name" },
+    { key: "bank_account_number", value: lguConfig.payments.bankAccountNumber, description: "Official bank account number" },
 
     // POSO Public Portal Settings
-    { key: "poso_location", value: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines", description: "Official POSO Office Address" },
-    { key: "poso_hotline", value: "(075) 529-XXXX / +63 917 123 4567", description: "POSO Emergency & Incident Hotline Numbers" },
-    { key: "poso_operating_hour", value: "Monday - Friday: 8:00 AM - 5:00 PM", description: "POSO Office Operating Hours" },
-    { key: "poso_official_email", value: "poso@mapandan.gov.ph", description: "POSO Official Public Contact Email" },
-    { key: "poso_facebook", value: "https://facebook.com/MapandanPOSO", description: "POSO Official Facebook Page Link" },
+    { key: "poso_location", value: lguConfig.poso.address, description: "Official POSO Office Address" },
+    { key: "poso_hotline", value: lguConfig.poso.hotline, description: "POSO Emergency & Incident Hotline Numbers" },
+    { key: "poso_operating_hour", value: lguConfig.poso.officeHours, description: "POSO Office Operating Hours" },
+    { key: "poso_official_email", value: lguConfig.poso.email, description: "POSO Official Public Contact Email" },
+    { key: "poso_facebook", value: lguConfig.social.posoFacebook, description: "POSO Official Facebook Page Link" },
   ];
 
   for (const s of settings) {
@@ -75,18 +76,14 @@ async function main() {
   console.log(`✅ Seeded ${settings.length} system setting parameters.`);
 
   // 3. SEED BARANGAY INFORMATION
-  console.log("🏡 Seeding official Mapandan Barangays with logistics configurations...");
-  const barangays = [
-    "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez",
-    "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias",
-    "Sta. Maria", "Torres"
-  ];
+  console.log("🏡 Seeding official Barangays with logistics configurations...");
+  const barangays = lguConfig.barangays.filter((name) => !name.includes("{{"));
 
   for (const name of barangays) {
     await prisma.barangayInfo.create({
       data: {
         name,
-        description: `Barangay ${name} in the municipality of Mapandan, Pangasinan.`,
+        description: `Barangay ${name} in ${lguConfig.identity.fullName}.`,
         deliveryFee: 50.00,
         isLogisticsActive: true,
         estimatedDeliveryDays: 3,
@@ -154,7 +151,7 @@ async function main() {
     {
       code: "BUSINESS_PERMIT_NEW",
       name: "Business Permit - New",
-      description: "Apply for a new business permit for starting a business in Mapandan, Pangasinan.",
+      description: "Apply for a new business permit for starting a business in the Municipality of E-LGU.",
       level: 1,
       category: "Permits",
       baseFee: 500.00,
@@ -338,7 +335,7 @@ async function main() {
   console.log("🖼️ Seeding Hero Slide for homepage banner...");
   await prisma.heroSlide.create({
     data: {
-      title: "Welcome to E-Mapandan",
+      title: "Welcome to E-LGU",
       subtitle: "Your digital gateway to municipal services, tourism, and community events.",
       tagline: "Fast, Reliable, Secure",
       imageUrl: "https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?q=80&w=1200",
@@ -362,7 +359,7 @@ async function main() {
   const mockUsers = [
     {
       name: "Municipal Admin",
-      email: "admin@mapandan.gov.ph",
+      email: lguConfig.seedAccounts.adminEmail,
       password: commonHashedPassword,
       role: "ADMIN" as const,
       isEmailVerified: true,
@@ -370,7 +367,7 @@ async function main() {
     },
     {
       name: "Treasury Staff",
-      email: "treasury@mapandan.gov.ph",
+      email: lguConfig.seedAccounts.treasuryEmail,
       password: commonHashedPassword,
       role: "TREASURY_STAFF" as const,
       isEmailVerified: true,
@@ -378,7 +375,7 @@ async function main() {
     },
     {
       name: "Admin Aide",
-      email: "aide@mapandan.gov.ph",
+      email: lguConfig.seedAccounts.adminAideEmail,
       password: commonHashedPassword,
       role: "ADMIN_AIDE" as const,
       isEmailVerified: true,
@@ -386,7 +383,7 @@ async function main() {
     },
     {
       name: "Logistics Rider",
-      email: "jhma.nilo.up@phinmaed.com",
+      email: lguConfig.seedAccounts.riderEmail,
       password: commonHashedPassword,
       role: "RIDER" as const,
       isEmailVerified: true,
@@ -394,7 +391,7 @@ async function main() {
     },
     {
       name: "RHU Administrator",
-      email: "rhu@mapandan.gov.ph",
+      email: lguConfig.seedAccounts.rhuEmail,
       password: commonHashedPassword,
       role: "ADMIN" as const,
       department: "RHU",
@@ -403,7 +400,7 @@ async function main() {
     },
     {
       name: "Municipal Assessor Admin",
-      email: "assessor@admin.com",
+      email: lguConfig.seedAccounts.assessorEmail,
       password: commonHashedPassword,
       role: "ASSESSOR" as any,
       department: "ASSESSOR",
@@ -413,7 +410,7 @@ async function main() {
     },
     {
       name: "MDRRMO Administrator",
-      email: "mdrrmo@mapandan.gov.ph",
+      email: lguConfig.seedAccounts.disasterResponseEmail,
       password: commonHashedPassword,
       role: "MDRRMO_ADMIN" as any,
       department: "MDRRMO",
@@ -431,7 +428,7 @@ async function main() {
   const citizen = await prisma.user.create({
     data: {
       name: "John Doe",
-      email: "citizen@gmail.com",
+      email: lguConfig.seedAccounts.residentEmail,
       password: commonHashedPassword,
       role: "USER",
       isEmailVerified: true,
@@ -447,14 +444,16 @@ async function main() {
       middleName: "Smith",
       gender: "Male",
       dateOfBirth: new Date("1995-05-15"),
-      placeOfBirth: "Mapandan, Pangasinan",
+      placeOfBirth: lguConfig.identity.fullName,
+      municipality: lguConfig.identity.name,
+      province: lguConfig.identity.province,
       civilStatus: "Single",
       citizenship: "Filipino",
       purok: "Purok 1",
       street: "Rizal Street",
-      barangay: "Poblacion",
-      contactNumber: "0917-888-8888",
-      email: "citizen@gmail.com",
+      barangay: lguConfig.barangays.find((name) => !name.includes("{{")) || "{{BARANGAY_NAME}}",
+      contactNumber: lguConfig.contact.phone,
+      email: lguConfig.contact.email,
       registrationStatus: "APPROVED", // Approved bypasses pre-screening!
       registrationType: "SELF",
       dataPrivacyConsent: true,

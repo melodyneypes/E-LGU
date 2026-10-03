@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -41,7 +43,7 @@ export function BarangaySwitcher({ availableBarangays = [], currentBarangay, the
                     onChange={(e) => onSelect(e.target.value)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 >
-                    <option value="" className="text-slate-900 dark:text-white bg-white dark:bg-[#1e2330]">Mapandan</option>
+                    <option value="" className="text-slate-900 dark:text-white bg-white dark:bg-[#1e2330]">{sanitizeLguText("{{LGU_NAME}}")}</option>
                     {availableBarangays.map(b => (
                         <option key={b} value={b} className="text-slate-900 dark:text-white bg-white dark:bg-[#1e2330]">{b}</option>
                     ))}
@@ -52,7 +54,7 @@ export function BarangaySwitcher({ availableBarangays = [], currentBarangay, the
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic leading-none mb-1">Jurisdiction Scope</p>
                     <div className="flex items-center gap-1">
                         <span className="text-xs font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none pr-4">
-                            {currentBarangay || "Mapandan"}
+                            {currentBarangay || "{{LGU_NAME}}"}
                         </span>
                         <ChevronDown size={12} className="text-slate-400 group-hover:text-primary transition-colors pointer-events-none" />
                     </div>

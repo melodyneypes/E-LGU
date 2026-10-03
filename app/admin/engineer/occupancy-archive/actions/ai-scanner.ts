@@ -61,7 +61,7 @@ export async function scanOccupancyCertificateDocument({
         const ai = new GoogleGenAI({ apiKey });
 
         const promptGuidance = `
-You are analyzing an official Philippine Certificate of Occupancy document (issued by the Office of the Building Official, Municipality of Mapandan, Province of Pangasinan pursuant to Section 309 of the National Building Code of the Philippines, PD 1096).
+You are analyzing an official Philippine Certificate of Occupancy document (issued by the Office of the Building Official, Municipality of E-LGU pursuant to Section 309 of the National Building Code of the Philippines, PD 1096).
 Extract the following fields accurately based on the standard layout of the Certificate of Occupancy:
 
 1. Occupancy Type & Control Numbers (Top Section):
@@ -86,7 +86,7 @@ Extract the following fields accurately based on the standard layout of the Cert
    - occupancyUse: Classification of occupancy (labeled as "Use or Character of Occupancy: RESIDENTIAL" e.g. "Residential", "Commercial").
    - occupancyGroup: Group letter code (labeled as "Group: A" e.g. "GROUP A", "GROUP B").
    - street: Street or Sitio name (if written under "Located at :").
-   - barangay: Exact Barangay in Mapandan (labeled under "Located at : [BARANGAY], MAPANDAN, PANGASINAN"). Must match one of Mapandan's 15 Barangays: Amanoaoac, Apaya, Aserda, Baloling, Coral, Golden, Jimenez, Lambayan, Loubing, Nilombot, Pias, Poblacion, Primicias, Santa Maria, Torres. (e.g. if "AMANOAOAC", return "Amanoaoac").
+   - barangay: Exact Barangay in the Municipality (labeled under "Located at : [BARANGAY]"). Must match one of the municipal Barangays: {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, Loubing, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}, {{BARANGAY_NAME}}. (e.g. if "{{BARANGAY_NAME}}", return "{{BARANGAY_NAME}}").
 
 5. Responsible Signatory:
    - buildingOfficial: Name of the Municipal Engineer / Building Official who signed the certificate (e.g. "ENGR. ANGELO C. ABROGAR").

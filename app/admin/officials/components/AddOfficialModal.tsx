@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Image as ImageIcon, X, Loader2, Users, Phone, Mail, Calendar, Hash, GraduationCap, Trophy, Quote, Globe, Plus, Trash2, MapPin } from "lucide-react";
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
+import lguConfig from "@/config/lgu.config.json";
 import {
     Select,
     SelectContent,
@@ -248,7 +249,7 @@ function OfficialForm({ editingData, handleSubmit, themeColor }: { editingData: 
                             <Input
                                 name="contactNumber"
                                 defaultValue={editingData?.contactNumber}
-                                placeholder="e.g. 09123456789"
+                                placeholder="e.g. 09XX-XXX-XXXX"
                                 className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
                             />
                         </div>
@@ -260,7 +261,7 @@ function OfficialForm({ editingData, handleSubmit, themeColor }: { editingData: 
                                 name="email"
                                 type="email"
                                 defaultValue={editingData?.email}
-                                placeholder="official@mapandan.gov.ph"
+                                placeholder={lguConfig.contact.email}
                                 className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
                             />
                         </div>

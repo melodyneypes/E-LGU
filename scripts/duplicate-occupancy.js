@@ -38,7 +38,7 @@ import OccupancyModule from "./OccupancyModule";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Occupancy | E-Mapandan",
+  title: "Occupancy | E-LGU",
   description: "Apply for a new Occupancy",
 };
 

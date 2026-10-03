@@ -357,10 +357,10 @@ export async function exportMonthlySummaryPdf(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10.5);
     doc.setTextColor(40, 40, 40);
-    doc.text("Municipality of MAPANDAN", PAGE_W / 2, 16, { align: "center" });
+    doc.text("Municipality of E-LGU", PAGE_W / 2, 16, { align: "center" });
 
     doc.setFontSize(9.5);
-    doc.text("Province of Pangasinan", PAGE_W / 2, 21, { align: "center" });
+    doc.text("Province of {{PROVINCE_NAME}}", PAGE_W / 2, 21, { align: "center" });
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
@@ -488,7 +488,7 @@ export async function exportMonthlySummaryPdf(
         doc.setFont("helvetica", "normal");
         doc.setTextColor(120, 120, 120);
         doc.text(
-            `Municipality of Mapandan, Pangasinan  •  Generated on ${format(new Date(), "MMMM dd, yyyy hh:mm a")}`,
+            `Municipality of E-LGU  •  Generated on ${format(new Date(), "MMMM dd, yyyy hh:mm a")}`,
             MARGIN,
             PAGE_H - 8
         );
@@ -518,7 +518,7 @@ export async function exportMonthlySummaryExcel(
     const treasurerTitle = options?.treasurerTitle?.trim() || "Acting Municipal Treasurer";
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Treasury Department - Municipality of Mapandan";
+    workbook.creator = "Treasury Department - Municipality of E-LGU";
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet("Monthly Summary", {
@@ -537,14 +537,14 @@ export async function exportMonthlySummaryExcel(
     // Row 1: LGU
     sheet.mergeCells("A1:C1");
     const r1 = sheet.getCell("A1");
-    r1.value = "Municipality of MAPANDAN";
+    r1.value = "Municipality of E-LGU";
     r1.font = { name: "Arial", size: 10, bold: false };
     r1.alignment = { horizontal: "center", vertical: "middle" };
 
     // Row 2: Province
     sheet.mergeCells("A2:C2");
     const r2 = sheet.getCell("A2");
-    r2.value = "Province of Pangasinan";
+    r2.value = "Province of {{PROVINCE_NAME}}";
     r2.font = { name: "Arial", size: 9, bold: false };
     r2.alignment = { horizontal: "center", vertical: "middle" };
 

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-    title: "BPLO Announcements | Mapandan Admin",
+    title: "BPLO Announcements | {{LGU_NAME}} Admin",
     description: "Official Business Permits and Licensing Office public advisories and permit schedules.",
 };
 

@@ -71,7 +71,7 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
         <div className="bg-white dark:bg-[#111827] rounded-[2rem] md:rounded-[3rem] border border-slate-200 dark:border-white/5 shadow-2xl overflow-hidden p-6 md:p-10 ring-1 ring-slate-200 dark:ring-white/5 h-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 md:mb-8">
                 <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 md:w-6 md:h-6" style={{ color: info.themeColor || '#2563eb' }} />
+                    <Clock className="w-5 h-5 md:w-6 md:h-6" style={{ color: info.themeColor || '#0038a8' }} />
                     <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Mass Schedule</h3>
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Schedule Highlights</span>
@@ -84,12 +84,12 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                             <div key={idx} className="border-b border-slate-100 dark:border-white/5 last:border-b-0 pb-6 last:pb-0">
                                 <div className="py-2 flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
-                                        <CalendarDays className="w-3.5 h-3.5" style={group.isPriority ? { color: '#f59e0b' } : { color: info.themeColor || '#2563eb' }} />
+                                        <CalendarDays className="w-3.5 h-3.5" style={group.isPriority ? { color: '#f59e0b' } : { color: info.themeColor || '#0038a8' }} />
                                         <span className={`text-[11px] md:text-xs font-black uppercase italic tracking-widest ${group.isPriority ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>
                                             {group.day} {group.isPriority ? '• Priority' : ''}
                                         </span>
                                         {(group.day === format(new Date(), "MMMM dd, yyyy") || group.day === format(new Date(), "EEEE")) ? (
-                                            <span className="ml-2 px-2 py-0.5 text-[8px] font-black text-white rounded-md tracking-tighter" style={{ backgroundColor: info.themeColor || '#2563eb' }}>TODAY</span>
+                                            <span className="ml-2 px-2 py-0.5 text-[8px] font-black text-white rounded-md tracking-tighter" style={{ backgroundColor: info.themeColor || '#0038a8' }}>TODAY</span>
                                         ) : null}
                                     </div>
                                     <span className="text-[9px] font-bold text-slate-400 italic"> GUIDE</span>
@@ -97,17 +97,17 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                                 <div className="space-y-4 pl-1">
                                     {group.slots.map((s: any, sIdx: number) => (
                                         <div key={sIdx} className="relative pl-5 md:pl-6 border-l-2 border-slate-200 dark:border-white/10 last:border-0 pb-2">
-                                            <div className="absolute top-1.5 left-[-5px] w-2 h-2 rounded-full" style={{ backgroundColor: info.themeColor || '#2563eb' }} />
+                                            <div className="absolute top-1.5 left-[-5px] w-2 h-2 rounded-full" style={{ backgroundColor: info.themeColor || '#0038a8' }} />
                                             <div className="flex flex-row items-center justify-between gap-4">
                                                 <div className="flex items-center gap-4">
                                                     <p className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">{s.time}</p>
                                                     <div className="flex md:hidden items-center gap-2">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest italic" style={{ color: info.themeColor || '#2563eb' }}>{s.language || "English"}</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest italic" style={{ color: info.themeColor || '#0038a8' }}>{s.language || "English"}</span>
                                                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">{s.type || "Mass"}</span>
                                                     </div>
                                                 </div>
                                                 <div className="hidden md:flex flex-col items-end gap-1">
-                                                    <span className="text-[9px] font-black uppercase tracking-widest italic" style={{ color: info.themeColor || '#2563eb' }}>{s.language || "English"}</span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest italic" style={{ color: info.themeColor || '#0038a8' }}>{s.language || "English"}</span>
                                                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">{s.type || "Mass"}</span>
                                                 </div>
                                             </div>
@@ -148,7 +148,7 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                 <div className="relative z-10 space-y-4 md:space-y-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-emerald-500" />
+                            <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-cyan-400" />
                             <h3 className="text-lg md:text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Collection</h3>
                         </div>
                         <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Weekly Report</span>
@@ -208,8 +208,8 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
 
                     <div className="pt-3 md:pt-4 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
                         <div className="flex items-center gap-2 group">
-                            <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
-                                <Heart className="w-4 h-4 text-emerald-500 fill-emerald-500" />
+                            <div className="w-8 h-8 rounded-full bg-sky-50 dark:bg-sky-950/30 flex items-center justify-center">
+                                <Heart className="w-4 h-4 text-cyan-400 fill-cyan-400" />
                             </div>
                             <p className="text-[10px] font-black uppercase tracking-widest italic text-slate-400">God loves a cheerful giver.</p>
                         </div>
@@ -224,7 +224,7 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
             {/* Background elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[120px] rounded-full" />
-                <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-emerald-500/5 blur-[100px] rounded-full" />
+                <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-cyan-500/5 blur-[100px] rounded-full" />
             </div>
 
             <div className="max-w-7xl mx-auto">
@@ -232,7 +232,7 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8 relative z-30 sticky md:static top-16 sm:top-20 md:top-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-16">
                     <div className="space-y-2 md:space-y-4 w-full">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 md:p-3 rounded-2xl shadow-lg" style={{ backgroundColor: info.themeColor || '#2563eb', boxShadow: `0 10px 15px -3px ${info.themeColor}33` }}>
+                            <div className="p-2 md:p-3 rounded-2xl shadow-lg" style={{ backgroundColor: info.themeColor || '#0038a8', boxShadow: `0 10px 15px -3px ${info.themeColor}33` }}>
                                 <Church className="w-6 h-6 md:w-8 md:h-8 text-white" />
                             </div>
                             <h2 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">
@@ -289,7 +289,7 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                             href={info.flyerUrl || null as any}
                             download
                             className="w-full md:w-[400px] flex items-center justify-center gap-2 md:gap-3 px-8 py-3.5 md:py-5 text-white rounded-[2rem] font-black uppercase italic tracking-widest text-[9px] md:text-[10px] transition-all shadow-xl group"
-                            style={{ backgroundColor: info.themeColor || '#2563eb', boxShadow: `0 10px 15px -3px ${info.themeColor}4d` }}
+                            style={{ backgroundColor: info.themeColor || '#0038a8', boxShadow: `0 10px 15px -3px ${info.themeColor}4d` }}
                         >
                             <Download className="w-3.5 h-3.5 md:w-4 md:h-4 group-hover:bounce transition-transform" />
                             <span>Download Weekly Flyer</span>

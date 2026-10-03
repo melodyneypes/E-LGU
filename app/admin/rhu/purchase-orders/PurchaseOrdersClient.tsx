@@ -193,7 +193,7 @@ export default function PurchaseOrdersClient({ initialData }: PurchaseOrdersClie
         // Header Section
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text("MUNICIPALITY OF MAPANDAN — RURAL HEALTH UNIT (RHU)", 14, 15);
+        doc.text("LOCAL GOVERNMENT UNIT — RURAL HEALTH UNIT (RHU)", 14, 15);
 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
@@ -207,7 +207,7 @@ export default function PurchaseOrdersClient({ initialData }: PurchaseOrdersClie
             const addData = getAdditionalData(tx);
             const controlNo = tx.controlNumber || tx.id.slice(0, 8).toUpperCase();
             const patientName = resident.firstName ? `${resident.firstName} ${resident.lastName}` : tx.user?.name || "N/A";
-            const barangay = resident.barangay || "Mapandan";
+            const barangay = resident.barangay || "{{BARANGAY_NAME}}";
             const healthCenter = addData.healthCenterName || centerName || "RHU Main";
             const rawPrescription = addData.deos?.orders || addData.deos?.diagnosis || "Prescription Encoded";
             const dispenseInfo = addData.dispenseInfo || {};
@@ -271,7 +271,7 @@ export default function PurchaseOrdersClient({ initialData }: PurchaseOrdersClie
                 doc.setFontSize(8);
                 doc.setTextColor(100);
                 doc.text(
-                    `Page ${data.pageNumber} — Official RHU EMapandan Electronic Medicine Dispense Summary`,
+                    `Page ${data.pageNumber} — Official RHU E-LGU Electronic Medicine Dispense Summary`,
                     14,
                     pageHeight - 10
                 );
@@ -302,7 +302,7 @@ export default function PurchaseOrdersClient({ initialData }: PurchaseOrdersClie
                 const addData = getAdditionalData(tx);
                 const controlNo = tx.controlNumber || tx.id.slice(0, 8).toUpperCase();
                 const patientName = resident.firstName ? `${resident.firstName} ${resident.lastName}` : tx.user?.name || "N/A";
-                const barangay = resident.barangay || "Mapandan";
+                const barangay = resident.barangay || "{{BARANGAY_NAME}}";
                 const healthCenter = addData.healthCenterName || centerName || "RHU Main";
                 const rawPrescription = addData.deos?.orders || addData.deos?.diagnosis || "Prescription Encoded";
                 const dispenseInfo = addData.dispenseInfo || {};
@@ -598,7 +598,7 @@ export default function PurchaseOrdersClient({ initialData }: PurchaseOrdersClie
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{patientName}</span>
                                                     <span className="text-[10px] text-slate-400">
-                                                        For: <span className="font-semibold text-slate-500">{resident.relationship || "Self"}</span> • Brgy. {resident.barangay || "Mapandan"}
+                                                        For: <span className="font-semibold text-slate-500">{resident.relationship || "Self"}</span> • Brgy. {resident.barangay || "{{BARANGAY_NAME}}"}
                                                     </span>
                                                 </div>
                                             </TableCell>
@@ -811,7 +811,7 @@ export default function PurchaseOrdersClient({ initialData }: PurchaseOrdersClie
                                                     const addData = getAdditionalData(tx);
                                                     const controlNo = tx.controlNumber || tx.id.slice(0, 8).toUpperCase();
                                                     const patientName = resident.firstName ? `${resident.firstName} ${resident.lastName}` : tx.user?.name || "N/A";
-                                                    const barangay = resident.barangay || "Mapandan";
+                                                    const barangay = resident.barangay || "{{BARANGAY_NAME}}";
                                                     const healthCenter = addData.healthCenterName || centerName || "RHU Main";
                                                     const orders = getPOOrdersDisplay(tx);
                                                     const apptDate = `${formatDateTime(tx.appointmentDate)} (${tx.appointmentSlot || "Regular"})`;

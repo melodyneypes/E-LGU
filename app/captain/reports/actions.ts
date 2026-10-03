@@ -24,7 +24,7 @@ export async function getCaptainReports(params?: {
             return { success: false, error: "Unauthorized" };
         }
 
-        const managedBarangay = user?.managedBarangay || params?.barangay || "Apaya";
+        const managedBarangay = user?.managedBarangay || params?.barangay || "{{BARANGAY_NAME}}";
 
         const whereClause: any = {
             barangay: {

@@ -122,7 +122,7 @@ export function UserAnnouncementsView({
             </div>
 
             <p className="text-sm md:text-lg text-slate-500 dark:text-slate-400 font-medium italic max-w-2xl leading-relaxed px-2 md:px-0">
-                Stay updated with the latest official notices, priority bulletins, and emergency alerts from the local government unit of Mapandan.
+                Stay updated with the latest official notices, priority bulletins, and emergency alerts from the local government unit of E-LGU.
             </p>
 
             {/* Grid */}

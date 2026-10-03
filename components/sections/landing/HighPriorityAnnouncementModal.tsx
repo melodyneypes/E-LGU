@@ -69,7 +69,7 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
     const [highPriorityList, setHighPriorityList] = useState<HighPriorityAnnouncement[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [direction, setDirection] = useState(1);
-    const [themeColor, setThemeColor] = useState(initialThemeColor || "var(--primary-theme, #2563eb)");
+    const [themeColor, setThemeColor] = useState(initialThemeColor || "var(--primary-theme, #0038a8)");
 
     useEffect(() => {
         if (initialThemeColor) {
@@ -139,11 +139,11 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
         badgeLabel = `${activeAnnouncement.category} Advisory`;
     }
 
-    let issuerLabel = "Municipality of Mapandan";
+    let issuerLabel = "Municipality of E-LGU";
     if (isBPLO) {
         issuerLabel = "Business Permits & Licensing Office (BPLO)";
     } else if (isHealth) {
-        issuerLabel = "Rural Health Unit Mapandan";
+        issuerLabel = "Rural Health Unit (RHU)";
     }
 
     let ctaHref = "/user/announcements";
@@ -257,14 +257,14 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
                                                     ? "bg-white text-red-600 animate-pulse"
                                                     : isBPLO
                                                     ? "bg-white text-blue-900"
-                                                    : "bg-white text-emerald-800"
+                                                    : "bg-cyan-400 text-slate-950 font-bold shadow-[0_0_12px_rgba(0,210,255,0.4)]"
                                             }`}>
                                                 {isCritical ? (
                                                     <ShieldAlert className="w-3 h-3 text-red-600 shrink-0" />
                                                 ) : isBPLO ? (
                                                     <Building2 className="w-3 h-3 text-blue-800 shrink-0" />
                                                 ) : (
-                                                    <Activity className="w-3 h-3 text-emerald-600 shrink-0" />
+                                                    <Activity className="w-3 h-3 text-slate-950 shrink-0" />
                                                 )}
                                                 <span>{badgeLabel}</span>
                                             </Badge>
@@ -279,7 +279,7 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
                                             {/* Stack Deck Counter Badge */}
                                             {hasMultiple && (
                                                 <Badge className="bg-black/40 text-white border border-white/25 text-[7.5px] sm:text-[8px] uppercase font-black tracking-wider backdrop-blur-md gap-1 px-1.5 sm:px-2">
-                                                    <Layers className="w-2.5 h-2.5 text-emerald-300" />
+                                                    <Layers className="w-2.5 h-2.5 text-cyan-300" />
                                                     <span>{currentIndex + 1} of {highPriorityList.length}</span>
                                                 </Badge>
                                             )}
@@ -315,7 +315,7 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
                                     <div className="space-y-0.5">
                                         <div className="flex items-center gap-1.5 sm:gap-2 text-[7.5px] sm:text-[9px] font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] text-white/85 flex-wrap">
                                             <div className="flex items-center gap-1">
-                                                <BellRing className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-300 animate-bounce" />
+                                                <BellRing className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-cyan-300 animate-bounce" />
                                                 <span className="truncate max-w-[190px] sm:max-w-none">{issuerLabel}</span>
                                             </div>
                                             <span className="opacity-40">•</span>
@@ -361,7 +361,7 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
                                                 </div>
 
                                                 <div className="font-mono text-slate-400 flex items-center gap-1 text-[8px] sm:text-[9px]">
-                                                    <Sparkles className="w-2.5 h-2.5 text-amber-400" /> E-Mapandan Official
+                                                    <Sparkles className="w-2.5 h-2.5 text-amber-400" /> E-LGU Official
                                                 </div>
                                             </div>
                                         </div>
@@ -381,7 +381,7 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
                                             </div>
 
                                             <div className="font-mono text-slate-400 flex items-center gap-1 text-[8px] sm:text-[9px]">
-                                                <Sparkles className="w-2.5 h-2.5 text-amber-400" /> E-Mapandan Official
+                                                <Sparkles className="w-2.5 h-2.5 text-amber-400" /> E-LGU Official
                                             </div>
                                         </div>
                                     </div>

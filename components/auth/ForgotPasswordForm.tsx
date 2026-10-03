@@ -20,7 +20,7 @@ interface ForgotPasswordFormProps {
     themeColor?: string;
 }
 
-export function ForgotPasswordForm({ themeColor = "#2563eb" }: ForgotPasswordFormProps) {
+export function ForgotPasswordForm({ themeColor = "#0038a8" }: ForgotPasswordFormProps) {
     const [isSubmitted, setIsSubmitted] = React.useState(false);
     const [submittedEmail, setSubmittedEmail] = React.useState("");
     const [isEmailFocused, setIsEmailFocused] = React.useState(false);

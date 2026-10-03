@@ -68,7 +68,7 @@ export function MayorTourismHeader({
                                 Tourism & Gallery Hub
                             </h1>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Mapandan Executive Oversight & Tourism Directory
+                                E-LGU Executive Oversight & Tourism Directory
                             </p>
                         </div>
                     </div>

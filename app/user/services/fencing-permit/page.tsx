@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import * as React from "react";
 import Link from "next/link";
@@ -62,24 +63,7 @@ import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
 const DRAFT_DETAILS_STORAGE_KEY = "fencing_permit_details_draft";
 
-const MAPANDAN_BARANGAYS = [
-  "Amanoaoac",
-  "Apaya",
-  "Aserda",
-  "Baloling",
-  "Coral",
-  "Golden",
-  "Lanas",
-  "Nilombot",
-  "Patland",
-  "Pias",
-  "Poblacion",
-  "Primicias",
-  "Santa Maria",
-  "Torres",
-  "Valenzuela"
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 const FENCE_TYPE_OPTIONS = [
   {
     value: "Concrete Hollow Block (CHB) & Steel Grille",
@@ -764,7 +748,7 @@ export default function FencingPermitPage() {
             Fencing <span className="text-primary underline decoration-primary/20 underline-offset-8">Permit</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium max-w-2xl">
-            Online application for perimeter walls, boundary fencing, and site enclosure permits in the Municipality of Mapandan.
+            Online application for perimeter walls, boundary fencing, and site enclosure permits in the Municipality of E-LGU.
           </p>
         </div>
 
@@ -884,7 +868,7 @@ export default function FencingPermitPage() {
                   Fencing Permit Application Guidelines
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-                  A Fencing Permit is a statutory accessory permit required prior to constructing, altering, repairing, or relocating any perimeter fence or boundary wall within the territorial jurisdiction of the Municipality of Mapandan. This ensures strict adherence to property boundaries, public safety standards, and road right-of-way setbacks.
+                  A Fencing Permit is a statutory accessory permit required prior to constructing, altering, repairing, or relocating any perimeter fence or boundary wall within the territorial jurisdiction of the Municipality of E-LGU. This ensures strict adherence to property boundaries, public safety standards, and road right-of-way setbacks.
                 </p>
               </div>
             </div>
@@ -1043,7 +1027,7 @@ export default function FencingPermitPage() {
                     Mandatory Technical & Zoning Standards
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    All fence installations within Mapandan must comply with the following structural and spatial requirements:
+                    All fence installations within the municipality must comply with the following structural and spatial requirements:
                   </p>
                 </div>
               </div>
@@ -1144,7 +1128,7 @@ export default function FencingPermitPage() {
                     )}
                   >
                     <option value="" disabled>Select Barangay</option>
-                    {MAPANDAN_BARANGAYS.map((b) => (
+                    {LGU_BARANGAYS.map((b) => (
                       <option key={b} value={b} className="dark:bg-slate-900">
                         Barangay {b}
                       </option>
@@ -1184,7 +1168,7 @@ export default function FencingPermitPage() {
                   </label>
                   <input
                     type="text"
-                    value="Mapandan"
+                    value="Municipality of E-LGU"
                     disabled
                     className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.02] font-bold text-slate-500 dark:text-slate-400"
                   />
@@ -1197,7 +1181,7 @@ export default function FencingPermitPage() {
                   </label>
                   <input
                     type="text"
-                    value="Pangasinan"
+                    value="{{PROVINCE_NAME}}"
                     disabled
                     className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.02] font-bold text-slate-500 dark:text-slate-400"
                   />
@@ -1631,8 +1615,8 @@ export default function FencingPermitPage() {
                   </span>
                   <p className="font-bold text-slate-900 dark:text-white">
                     {residentProfile?.barangay
-                      ? `${residentProfile?.street ? residentProfile.street + ", " : ""}Brgy. ${residentProfile.barangay}, Mapandan`
-                      : "Mapandan, Pangasinan"}
+                      ? `${residentProfile?.street ? residentProfile.street + ", " : ""}Brgy. ${residentProfile.barangay}, Municipality of E-LGU`
+                      : "Municipality of E-LGU"}
                   </p>
                 </div>
               </div>
@@ -1671,7 +1655,7 @@ export default function FencingPermitPage() {
                     Fencing Site Address
                   </span>
                   <p className="font-bold text-slate-900 dark:text-white">
-                    {siteStreet ? `${siteStreet}, ` : ""}Brgy. {siteBarangay || "Mapandan"}
+                    {siteStreet ? `${siteStreet}, ` : ""}Brgy. {siteBarangay || "{{BARANGAY_NAME}}"}
                   </p>
                 </div>
 

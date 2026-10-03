@@ -31,7 +31,7 @@ interface LockoutState {
     cooldownUntil: number | null;
 }
 
-const STORAGE_KEY = "emapandan_login_lockout_by_email";
+const STORAGE_KEY = "E-LGU_login_lockout_by_email";
 const DEFAULT_STATE: LockoutState = {
     phase: 1,
     attemptsLeft: 3,
@@ -44,7 +44,7 @@ interface LoginFormProps {
     isMaintenanceActive?: boolean;
 }
 
-export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false }: LoginFormProps) {
+export function LoginForm({ themeColor = "#0038a8", isMaintenanceActive = false }: LoginFormProps) {
     const { triggerLeave } = React.useContext(AuthTransitionContext);
     const [showPassword, setShowPassword] = React.useState(false);
     const [isLoggingIn, setIsLoggingIn] = React.useState(false);
@@ -175,7 +175,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
         // 2. Sync OTP Lockout
         let currentOtpLockout = DEFAULT_STATE;
-        const storedOtp = localStorage.getItem("emapandan_otp_lockout_by_email");
+        const storedOtp = localStorage.getItem("E-LGU_otp_lockout_by_email");
         if (storedOtp) {
             try {
                 const map = JSON.parse(storedOtp) as { [email: string]: LockoutState };
@@ -189,7 +189,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                             // Cooldown expired
                             const updated = { ...emailOtpLockout, cooldownUntil: null };
                             const newMap = { ...map, [normalizedEmail]: updated };
-                            localStorage.setItem("emapandan_otp_lockout_by_email", JSON.stringify(newMap));
+                            localStorage.setItem("E-LGU_otp_lockout_by_email", JSON.stringify(newMap));
                             currentOtpLockout = updated;
                         }
                     } else {
@@ -204,7 +204,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
         // 3. Sync OTP Send Lockout
         let currentOtpSendLockout = DEFAULT_STATE;
-        const storedOtpSend = localStorage.getItem("emapandan_otp_send_lockout_by_email");
+        const storedOtpSend = localStorage.getItem("E-LGU_otp_send_lockout_by_email");
         if (storedOtpSend) {
             try {
                 const map = JSON.parse(storedOtpSend) as { [email: string]: LockoutState };
@@ -218,7 +218,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                             // Cooldown expired
                             const updated = { ...emailOtpSendLockout, cooldownUntil: null };
                             const newMap = { ...map, [normalizedEmail]: updated };
-                            localStorage.setItem("emapandan_otp_send_lockout_by_email", JSON.stringify(newMap));
+                            localStorage.setItem("E-LGU_otp_send_lockout_by_email", JSON.stringify(newMap));
                             currentOtpSendLockout = updated;
                         }
                     } else {
@@ -312,7 +312,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
         }
 
         // Check OTP Lockout directly from localStorage to prevent stale state / autofill bypasses
-        const storedOtp = localStorage.getItem("emapandan_otp_lockout_by_email");
+        const storedOtp = localStorage.getItem("E-LGU_otp_lockout_by_email");
         if (storedOtp) {
             try {
                 const map = JSON.parse(storedOtp) as { [email: string]: LockoutState };
@@ -482,7 +482,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
                         if (otpResult.code === "otp_lockout") {
                             const minutesLeft = (otpResult as any).minutesLeft || 3;
-                            const stored = localStorage.getItem("emapandan_otp_lockout_by_email");
+                            const stored = localStorage.getItem("E-LGU_otp_lockout_by_email");
                             let map: { [email: string]: LockoutState } = {};
                             if (stored) {
                                 try {
@@ -495,7 +495,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                                 cooldownUntil: Date.now() + minutesLeft * 60 * 1000,
                             };
                             map[normalizedEmail] = newState;
-                            localStorage.setItem("emapandan_otp_lockout_by_email", JSON.stringify(map));
+                            localStorage.setItem("E-LGU_otp_lockout_by_email", JSON.stringify(map));
 
                             toast.error(otpResult.error || `Too many failed attempts! OTP verification is locked for ${minutesLeft} minute(s).`);
                             await signOut({ redirect: false });
@@ -518,7 +518,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                             const minutes = Math.ceil(seconds / 60);
 
                             // Store OTP lockout in client localStorage to temporarily block login attempts
-                            const stored = localStorage.getItem("emapandan_otp_send_lockout_by_email");
+                            const stored = localStorage.getItem("E-LGU_otp_send_lockout_by_email");
                             let map: { [email: string]: LockoutState } = {};
                             if (stored) {
                                 try {
@@ -531,7 +531,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                                 cooldownUntil: Date.now() + minutes * 60 * 1000,
                             };
                             map[normalizedEmail] = newState;
-                            localStorage.setItem("emapandan_otp_send_lockout_by_email", JSON.stringify(map));
+                            localStorage.setItem("E-LGU_otp_send_lockout_by_email", JSON.stringify(map));
 
                             // Redirect anyway with warning so they can enter the code already in their email
                             if (typeof window !== "undefined") {
@@ -558,7 +558,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                                 const match = otpResult.error.match(/after (\d+) minute/i);
                                 const minutes = match ? parseInt(match[1], 10) : 45;
                                 
-                                const stored = localStorage.getItem("emapandan_otp_send_lockout_by_email");
+                                const stored = localStorage.getItem("E-LGU_otp_send_lockout_by_email");
                                 let map: { [email: string]: LockoutState } = {};
                                 if (stored) {
                                     try {
@@ -571,7 +571,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                                     cooldownUntil: Date.now() + minutes * 60 * 1000,
                                 };
                                 map[normalizedEmail] = newState;
-                                localStorage.setItem("emapandan_otp_send_lockout_by_email", JSON.stringify(map));
+                                localStorage.setItem("E-LGU_otp_send_lockout_by_email", JSON.stringify(map));
                             }
                         }
                         

@@ -72,7 +72,7 @@ export default async function UserLayout({
             logoUrl={settings.get("site_logo") || ""}
             brandWord1={settings.get("brand_word_1") || "E"}
             brandWord2={settings.get("brand_word_2") || ""}
-            themeColor={settings.get("theme_color") || "#2563eb"}
+            themeColor={settings.get("theme_color") || "#0038a8"}
         >
             {children}
         </UserLayoutClientWrapper>

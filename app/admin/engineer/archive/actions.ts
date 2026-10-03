@@ -246,7 +246,7 @@ export async function getArchivedBuildingPermits(params?: {
             }
 
             // Location
-            const location = bp?.location || addData.locationOfConstruction || resSnap.address || "Mapandan, Pangasinan";
+            const location = bp?.location || addData.locationOfConstruction || resSnap.address || "Municipality of E-LGU";
             const permitNumber = bp?.permitNumber || addData.permitNumber || `BP-PENDING-${tx.id.slice(-6).toUpperCase()}`;
             const dateIssued = bp?.dateIssued || addData.dateIssued || tx.createdAt;
             const projectType = bp?.projectType || addData.projectTitle || addData.projectType || addData.descriptionOfWork || "Building Construction";
@@ -310,7 +310,7 @@ export async function getArchivedBuildingPermits(params?: {
                 houseNumber: resSnap.houseNumber || addData.houseNumber || "",
                 street: resSnap.street || addData.street || "",
                 location,
-                barangay: addData.barangay || resSnap.barangay || "Torres",
+                barangay: addData.barangay || resSnap.barangay || "{{BARANGAY_NAME}}",
                 dateIssued,
                 projectType,
                 occupancyUse,
@@ -398,9 +398,9 @@ export async function createArchivedBuildingPermit(formData: FormData) {
         const blkNo = (formData.get("blkNo") as string)?.trim() || "";
         const tctNo = (formData.get("tctNo") as string)?.trim() || "";
         const street = (formData.get("street") as string)?.trim() || "";
-        const barangay = (formData.get("barangay") as string)?.trim() || "Torres";
-        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
-        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
+        const barangay = (formData.get("barangay") as string)?.trim() || "{{BARANGAY_NAME}}";
+        const municipality = (formData.get("municipality") as string)?.trim() || "E-LGU";
+        const province = (formData.get("province") as string)?.trim() || "{{PROVINCE_NAME}}";
         const zipCode = (formData.get("zipCode") as string)?.trim() || "2429";
 
         // Technical Specs & Occupancy
@@ -449,7 +449,7 @@ export async function createArchivedBuildingPermit(formData: FormData) {
             province,
             zipCode ? `ZIP ${zipCode}` : ""
         ].filter(Boolean);
-        const fullLocation = locationParts.join(", ") || `${barangay}, Mapandan, Pangasinan`;
+        const fullLocation = locationParts.join(", ") || `${barangay}, Municipality of E-LGU`;
 
         // Process File Uploads (Scanned Documents strictly into documents map)
         const documents: Record<string, string> = {};
@@ -672,9 +672,9 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
         const blkNo = (formData.get("blkNo") as string)?.trim() || "";
         const tctNo = (formData.get("tctNo") as string)?.trim() || "";
         const street = (formData.get("street") as string)?.trim() || "";
-        const barangay = (formData.get("barangay") as string)?.trim() || "Torres";
-        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
-        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
+        const barangay = (formData.get("barangay") as string)?.trim() || "{{BARANGAY_NAME}}";
+        const municipality = (formData.get("municipality") as string)?.trim() || "E-LGU";
+        const province = (formData.get("province") as string)?.trim() || "{{PROVINCE_NAME}}";
         const zipCode = (formData.get("zipCode") as string)?.trim() || "2429";
 
         const occupancyGroup = (formData.get("occupancyGroup") as string)?.trim() || "GROUP A";
@@ -699,7 +699,7 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
             province,
             zipCode ? `ZIP ${zipCode}` : ""
         ].filter(Boolean);
-        const fullLocation = locationParts.join(", ") || `${barangay}, Mapandan, Pangasinan`;
+        const fullLocation = locationParts.join(", ") || `${barangay}, Municipality of E-LGU`;
 
         const dateIssuedRaw = formData.get("dateIssued") as string;
         const dateIssued = dateIssuedRaw ? new Date(dateIssuedRaw) : (tx.buildingPermit?.dateIssued || new Date());

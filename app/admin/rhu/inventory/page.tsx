@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "../actions";
 
 export const metadata = {
-    title: "RHU Inventory & Pharmacy | EMapandan Admin",
+    title: "RHU Inventory & Pharmacy | E-LGU Admin",
     description: "Manage medicine catalog, center allocations, multi-batch delivery shipments, stock levels, and FEFO expiration dates.",
 };
 

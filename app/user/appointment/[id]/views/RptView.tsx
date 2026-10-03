@@ -50,14 +50,14 @@ export default function RptView({ request: _request, additionalData }: RptViewPr
                 <div className="space-y-1">
                     <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Barangay Location</span>
                     <p className="font-black uppercase text-slate-850 dark:text-white">
-                        {additionalData?.barangay || "Mapandan"}
+                        {additionalData?.barangay || "{{BARANGAY_NAME}}"}
                     </p>
                 </div>
 
                 <div className="space-y-1 col-span-1 sm:col-span-2">
                     <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Property Complete Address</span>
                     <p className="font-black text-slate-850 dark:text-white">
-                        {additionalData?.propertyAddress || `${additionalData?.barangay || "Mapandan"}, Pangasinan`}
+                        {additionalData?.propertyAddress || `${additionalData?.barangay || "{{BARANGAY_NAME}}"}, Municipality of E-LGU`}
                     </p>
                 </div>
             </div>

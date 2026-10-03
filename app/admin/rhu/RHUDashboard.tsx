@@ -280,7 +280,7 @@ export default function RHUDashboard({
                                         <div className="flex flex-col">
                                             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{patientName}</span>
                                             <span className="text-[10px] font-bold text-slate-400 italic">
-                                                {checkupDisplay} • Brgy. {resident.barangay || "Mapandan"}
+                                                {checkupDisplay} • Brgy. {resident.barangay || "{{BARANGAY_NAME}}"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">

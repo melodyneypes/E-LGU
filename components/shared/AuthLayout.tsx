@@ -2,8 +2,8 @@
 
 import React from "react";
 import Image from "next/image";
+import lguConfig from "@/config/lgu.config.json";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield } from "lucide-react";
 
 export const AuthTransitionContext = React.createContext<{
     isLeaving: boolean;
@@ -30,25 +30,12 @@ interface AuthLayoutProps {
 }
 
 export const AuthLayout = ({
-    children,
-    slides = [],
-    logoSrc,
-    brandWord1 = "E",
-    brandWord2 = "",
-    themeColor = "#2563eb" // Default blue-600
+    children
 }: AuthLayoutProps) => {
-    const [currentIndex, setCurrentIndex] = React.useState(0);
+    const brandWord1 = lguConfig.identity.brandWord1;
+    const brandWord2 = lguConfig.identity.brandWord2;
+    const themeColor = lguConfig.theme.primary;
     const [isLeaving, setIsLeaving] = React.useState(false);
-
-    const hasSlides = slides && slides.length > 0;
-
-    React.useEffect(() => {
-        if (!hasSlides) return;
-        const interval = setInterval(() => {
-            setCurrentIndex((prev) => (prev + 1) % slides.length);
-        }, 6000); // 6 seconds per slide
-        return () => clearInterval(interval);
-    }, [hasSlides, slides?.length]);
 
     const triggerLeave = (callback: () => void) => {
         setIsLeaving(true);
@@ -57,11 +44,10 @@ export const AuthLayout = ({
         }, 1200); // Allow animation to fully complete before routing
     };
 
-    // Fallback data if no slides exist
-    const currentSlide = hasSlides ? slides[currentIndex] : {
-        imageUrl: "/images/umbrella-rocks.png",
-        title: "Representing the timeless beauty of our coastal heritage.",
-        subtitle: "LOCAL TOURISM OFFICE"
+    const currentSlide = {
+        imageUrl: lguConfig.assets.heroImage,
+        title: lguConfig.identity.tagline,
+        subtitle: lguConfig.identity.fullName
     };
 
     return (
@@ -85,11 +71,7 @@ export const AuthLayout = ({
                                 className="w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-2xl transition-all duration-500 relative overflow-hidden group-hover:scale-110 group-hover:rotate-3"
                                 style={{ backgroundColor: themeColor, boxShadow: `0 20px 25px -5px ${themeColor}44` }}
                             >
-                                {logoSrc ? (
-                                    <Image src={logoSrc} alt="Logo" fill className="object-cover p-2" />
-                                ) : (
-                                    <Shield className="w-8 h-8 text-white relative z-10" />
-                                )}
+                                <Image src={lguConfig.assets.logo} alt="Logo" fill className="object-contain p-1.5" />
                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                             <div className="flex flex-col items-center drop-shadow-xl translate-y-1">
@@ -192,21 +174,6 @@ export const AuthLayout = ({
                         <div className="w-40 h-40 border-b-2 border-l-2 border-white rounded-bl-[4rem]" />
                     </div>
 
-                    {/* Slide Indicators */}
-                    {hasSlides && slides.length > 1 && (
-                        <div className="absolute bottom-10 right-20 z-30 flex gap-2">
-                            {slides.map((_, idx) => (
-                                <div
-                                    key={idx}
-                                    className="h-1 transition-all duration-500 rounded-full"
-                                    style={{
-                                        width: idx === currentIndex ? '2rem' : '0.5rem',
-                                        backgroundColor: idx === currentIndex ? themeColor : 'rgba(255,255,255,0.2)'
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    )}
                 </motion.div>
             </div>
         </AuthTransitionContext.Provider>

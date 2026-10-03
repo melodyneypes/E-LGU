@@ -7,7 +7,7 @@ import prisma from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "BPLO Appointment Settings | Mapandan Portal",
+    title: "BPLO Appointment Settings | {{LGU_NAME}} Portal",
     description: "Official administrative configuration for BPLO appointment slot limits and active schedule days.",
 };
 

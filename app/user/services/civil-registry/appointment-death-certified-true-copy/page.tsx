@@ -222,7 +222,7 @@ export default function AppointmentDeathCertifiedTrueCopyPage() {
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
                         r.municipality || "",
-                        r.province || "Pangasinan"
+                        r.province || "{{PROVINCE_NAME}}"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 
@@ -316,7 +316,7 @@ export default function AppointmentDeathCertifiedTrueCopyPage() {
         const upperVal = val.toUpperCase();
         const found = barangaysList.find(b => upperVal.includes(b.toUpperCase()));
         if (found) {
-            return `${found.toUpperCase()}, MAPANDAN, PANGASINAN`;
+            return `${found.toUpperCase()}, MUNICIPALITY OF E-LGU`;
         }
         return val;
     };
@@ -961,7 +961,7 @@ export default function AppointmentDeathCertifiedTrueCopyPage() {
                                                     <div className="overflow-y-auto max-h-[220px] p-1 italic">
                                                         {filteredBarangays.length > 0 ? (
                                                             filteredBarangays.map((brgy) => (
-                                                                <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MAPANDAN, PANGASINAN`}>
+                                                                <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MUNICIPALITY OF E-LGU`}>
                                                                     {brgy.toUpperCase()}
                                                                 </SelectItem>
                                                             ))

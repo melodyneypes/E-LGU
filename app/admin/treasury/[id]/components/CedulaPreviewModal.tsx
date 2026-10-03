@@ -14,6 +14,8 @@ import { Printer, Eye, Sparkles } from "lucide-react";
 import { CedulaLayoutSettings, DEFAULT_CEDULA_LAYOUT } from "@/lib/cedula-template-config";
 import { numberToWords, formatCedulaWordsTwoLines } from "@/lib/utils/number-to-words";
 import { cn } from "@/lib/utils";
+import lguConfig from "@/config/lgu.config.json";
+import { sanitizeLguText } from "@/lib/utils/lgu";
 
 interface CedulaPreviewModalProps {
     isOpen: boolean;
@@ -88,8 +90,8 @@ export default function CedulaPreviewModal({
 
     const fullAddress = (
         resident.street || resident.barangay
-            ? `${resident.houseNumber ? resident.houseNumber + " " : ""}${resident.street ? resident.street + ", " : ""}${resident.barangay ? "BRGY. " + resident.barangay + ", " : ""}${resident.municipality || "MAPANDAN"}, ${resident.province || "PANGASINAN"}`
-            : additional.address || "MAPANDAN, PANGASINAN"
+            ? `${resident.houseNumber ? resident.houseNumber + " " : ""}${resident.street ? resident.street + ", " : ""}${resident.barangay ? "BRGY. " + resident.barangay + ", " : ""}${resident.municipality || "MUNICIPALITY OF E-LGU"}, ${resident.province || "{{PROVINCE_NAME}}"}`
+            : additional.address || "MUNICIPALITY OF E-LGU"
     ).toUpperCase();
 
     const gender = (resident.gender || resident.sex || "").toUpperCase();
@@ -151,7 +153,7 @@ export default function CedulaPreviewModal({
     // Dynamic field values mapping
     const fieldValues: Record<string, string> = {
         year: curYear,
-        placeOfIssue: "MAPANDAN, PANGASINAN",
+        placeOfIssue: "MUNICIPALITY OF E-LGU",
         dateIssued: dateFormatted,
         tin: formattedTin || resident.tin || additional.tin || "",
         lastName: lastName,
@@ -167,7 +169,7 @@ export default function CedulaPreviewModal({
         civilStatusDivorced: isDivorced ? "✓" : "",
         citizenship: (resident.citizenship || "FILIPINO").toUpperCase(),
         icrNo: additional.icrNo || "N/A",
-        placeOfBirth: (resident.placeOfBirth || additional.placeOfBirth || "MAPANDAN, PANGASINAN").toUpperCase(),
+        placeOfBirth: (resident.placeOfBirth || additional.placeOfBirth || "MUNICIPALITY OF E-LGU").toUpperCase(),
         height: resident.height ? `${resident.height} cm` : (additional.height || "--"),
         dateOfBirth: resident.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split("T")[0] : (additional.dateOfBirth || "--"),
         weight: resident.weight ? `${resident.weight} kg` : (additional.weight || "--"),
@@ -256,14 +258,14 @@ export default function CedulaPreviewModal({
                             {/* Background Cedula Guide Image - exactly identical to Template Studio */}
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                                src={layout.bgImageUrl || "/images/cedula-template.png"}
+                                src={lguConfig.assets.contentPlaceholder}
                                 alt="Cedula Reference Form"
                                 className="absolute inset-0 w-full h-full object-fill pointer-events-none z-0"
                             />
 
                             {Object.values(layout.fields).map(field => {
                                 if (!field.visible) return null;
-                                const text = fieldValues[field.id] ?? field.sampleValue ?? "";
+                                const text = sanitizeLguText(fieldValues[field.id] ?? field.sampleValue ?? "");
                                 const isWords = field.id === "totalAmountInWords";
 
                                 return (

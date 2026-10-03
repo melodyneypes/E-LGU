@@ -47,7 +47,7 @@ export async function getMayorTransactionReportData(params: {
             whereClause.status = params.status;
         }
 
-        const targetBarangay = params.barangay && params.barangay !== "ALL" && params.barangay !== "Mapandan" ? params.barangay : null;
+        const targetBarangay = params.barangay && params.barangay !== "ALL" && params.barangay !== "{{LGU_NAME}}" && params.barangay !== "E-LGU" ? params.barangay : null;
         if (targetBarangay) {
             whereClause.OR = [
                 {

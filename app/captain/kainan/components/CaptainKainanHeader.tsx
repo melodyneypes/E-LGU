@@ -15,7 +15,7 @@ interface CaptainKainanHeaderProps {
 export function CaptainKainanHeader({
     session,
     themeColor,
-    managedBarangay = "Apaya",
+    managedBarangay = "{{BARANGAY_NAME}}",
 }: CaptainKainanHeaderProps) {
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);

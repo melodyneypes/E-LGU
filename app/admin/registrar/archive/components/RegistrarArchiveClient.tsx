@@ -156,14 +156,14 @@ export default function RegistrarArchiveClient({
         childName: "",
         sex: "MALE",
         dateOfBirth: "",
-        placeOfBirth: "Mapandan, Pangasinan",
+        placeOfBirth: "Municipality of E-LGU",
         fatherName: "",
         motherMaidenName: "",
 
         // Death fields
         deceasedName: "",
         dateOfDeath: "",
-        placeOfDeath: "Mapandan, Pangasinan",
+        placeOfDeath: "Municipality of E-LGU",
         ageAtDeath: "",
         causeOfDeath: "",
 
@@ -171,7 +171,7 @@ export default function RegistrarArchiveClient({
         husbandName: "",
         wifeName: "",
         dateOfMarriage: "",
-        placeOfMarriage: "Mapandan, Pangasinan",
+        placeOfMarriage: "Municipality of E-LGU",
         solemnizingOfficer: "",
 
         remarks: ""
@@ -401,18 +401,18 @@ export default function RegistrarArchiveClient({
             childName: rec.childName || "",
             sex: rec.sex || "MALE",
             dateOfBirth: rec.eventDate || "",
-            placeOfBirth: rec.eventPlace || "Mapandan, Pangasinan",
+            placeOfBirth: rec.eventPlace || "Municipality of E-LGU",
             fatherName: rec.fatherName || "",
             motherMaidenName: rec.motherMaidenName || "",
             deceasedName: rec.deceasedName || "",
             dateOfDeath: rec.eventDate || "",
-            placeOfDeath: rec.eventPlace || "Mapandan, Pangasinan",
+            placeOfDeath: rec.eventPlace || "Municipality of E-LGU",
             ageAtDeath: rec.ageAtDeath || "",
             causeOfDeath: rec.causeOfDeath || "",
             husbandName: rec.husbandName || "",
             wifeName: rec.wifeName || "",
             dateOfMarriage: rec.eventDate || "",
-            placeOfMarriage: rec.eventPlace || "Mapandan, Pangasinan",
+            placeOfMarriage: rec.eventPlace || "Municipality of E-LGU",
             solemnizingOfficer: rec.solemnizingOfficer || "",
             remarks: rec.remarks || ""
         });
@@ -1269,7 +1269,7 @@ export default function RegistrarArchiveClient({
                                         <div>
                                             <Label className="text-xs">Place of Birth</Label>
                                             <Input
-                                                placeholder="Mapandan, Pangasinan"
+                                                placeholder="Municipality of E-LGU"
                                                 value={formData.placeOfBirth}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, placeOfBirth: e.target.value }))}
                                                 className="h-10 mt-1 rounded-xl"
@@ -1338,7 +1338,7 @@ export default function RegistrarArchiveClient({
                                         <div>
                                             <Label className="text-xs">Place of Death</Label>
                                             <Input
-                                                placeholder="Mapandan, Pangasinan"
+                                                placeholder="Municipality of E-LGU"
                                                 value={formData.placeOfDeath}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, placeOfDeath: e.target.value }))}
                                                 className="h-10 mt-1 rounded-xl"
@@ -1397,7 +1397,7 @@ export default function RegistrarArchiveClient({
                                         <div>
                                             <Label className="text-xs">Place of Marriage</Label>
                                             <Input
-                                                placeholder="Mapandan, Pangasinan"
+                                                placeholder="Municipality of E-LGU"
                                                 value={formData.placeOfMarriage}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, placeOfMarriage: e.target.value }))}
                                                 className="h-10 mt-1 rounded-xl"

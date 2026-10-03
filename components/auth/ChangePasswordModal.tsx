@@ -54,7 +54,7 @@ interface ChangePasswordModalProps {
 
 type Step = 'identity' | 'otp' | 'password';
 
-export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, themeColor = "#2563eb" }: ChangePasswordModalProps) {
+export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, themeColor = "#0038a8" }: ChangePasswordModalProps) {
     "use no memo";
     const [step, setStep] = React.useState<Step>('identity');
     const [isLoading, setIsLoading] = React.useState(false);
@@ -417,7 +417,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                                 <div className="space-y-1">
                                     <DialogTitle className="text-2xl font-bold text-foreground tracking-tight">Reset Password</DialogTitle>
                                     <DialogDescription className="text-sm font-medium leading-relaxed text-muted-foreground px-2">
-                                        Please choose a strong password to secure your MAPANDAN Municipal account.
+                                        Please choose a strong password to secure your E-LGU Municipal account.
                                     </DialogDescription>
                                 </div>
                             </DialogHeader>

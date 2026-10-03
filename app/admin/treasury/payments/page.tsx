@@ -8,7 +8,7 @@ import PaymentsClient from "@/app/admin/treasury/payments/PaymentsClient";
 import { getPaymentsLedger } from "@/app/admin/treasury/payments/actions";
 
 export const metadata: Metadata = {
-    title: "Payments Ledger | Mapandan Portal",
+    title: "Payments Ledger | E-LGU Portal",
     description: "Official administrative ledger of municipal transactions and payment records.",
 };
 

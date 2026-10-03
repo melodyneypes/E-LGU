@@ -167,7 +167,7 @@ export function RoadClosureModal({
                                 {closureToEdit ? "Edit Road Advisory / Closure" : "New Road Advisory / Closure"}
                             </DialogTitle>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                Pin affected road segment in Mapandan, Pangasinan and set public detour guidelines.
+                                Pin affected road segment in our municipality and set public detour guidelines.
                             </p>
                         </div>
                     </div>
@@ -180,7 +180,7 @@ export function RoadClosureModal({
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                                     <MapPin className="w-4 h-4 text-rose-500" />
-                                    Mapandan Road Map (Click Start & End Points) *
+                                    Municipal Road Map (Click Start & End Points) *
                                 </Label>
                             </div>
                             <div className="flex-1">
@@ -210,7 +210,7 @@ export function RoadClosureModal({
                                     id="title"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="e.g. Poblacion Drainage Repair"
+                                    placeholder="e.g. {{BARANGAY_NAME}} Drainage Repair"
                                     className="h-11 rounded-xl font-medium"
                                     required
                                 />
@@ -225,7 +225,7 @@ export function RoadClosureModal({
                                     id="roadName"
                                     value={roadName}
                                     onChange={(e) => setRoadName(e.target.value)}
-                                    placeholder="e.g. Mapandan - Manaoag Provincial Road"
+                                    placeholder="e.g. Provincial / Municipal Road"
                                     className="h-11 rounded-xl"
                                 />
                             </div>
@@ -338,7 +338,7 @@ export function RoadClosureModal({
                                     rows={2}
                                     value={detourAdvice}
                                     onChange={(e) => setDetourAdvice(e.target.value)}
-                                    placeholder="e.g. Light vehicles pass via Torres bypass. Heavy trucks rerouted to Santa Maria."
+                                    placeholder="e.g. Light vehicles pass via {{BARANGAY_NAME}} bypass. Heavy trucks rerouted to {{BARANGAY_NAME}}."
                                     className="rounded-xl text-xs"
                                 />
                             </div>

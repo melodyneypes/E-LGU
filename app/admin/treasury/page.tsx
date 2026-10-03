@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Volume2 } from "lucide-react";
 
 export const metadata: Metadata = {
-    title: "Treasury Hub | Mapandan Portal",
+    title: "Treasury Hub | E-LGU Portal",
     description: "Official administrative dashboard for treasury services and financial processing.",
 };
 

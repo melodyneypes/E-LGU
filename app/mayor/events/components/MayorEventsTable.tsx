@@ -51,14 +51,13 @@ function EventDetailsModal({
 
     const status = getEventStatus(event);
 
-    // If lat/lng exists, use it. Otherwise, use fallback to center of Mapandan coordinates (16.0287, 120.4022)
     const mapEmbedUrl = event.latitude && event.longitude
         ? `https://maps.google.com/maps?q=${event.latitude},${event.longitude}&z=15&output=embed`
-        : `https://maps.google.com/maps?q=16.0287,120.4022&z=15&output=embed`;
+        : "https://maps.google.com";
 
     // Google Maps Redirect Link fallback to search query using venue name and address
     const googleMapsRedirectUrl = event.googleMapsUrl || 
-        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venueName}, ${event.address}, Mapandan, Pangasinan`)}`;
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venueName}, ${event.address}, Municipality of E-LGU`)}`;
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

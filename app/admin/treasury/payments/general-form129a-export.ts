@@ -352,7 +352,7 @@ export async function exportForm129APdf(
     const treasurerDisplay = options.treasurerName?.trim() || "Teresita S. Eden";
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.2);
-    const subTitle = `Of ${treasurerDisplay}, Municipal Treasurer, Municipality of MAPANDAN, Province of Pangasinan made during the period from ${periodDateRange}`;
+    const subTitle = `Of ${treasurerDisplay}, Municipal Treasurer, Municipality of E-LGU, Province of {{PROVINCE_NAME}} made during the period from ${periodDateRange}`;
     doc.text(subTitle, PAGE_W / 2, 17.5, { align: "center" });
 
     const currentY = 21;
@@ -640,7 +640,7 @@ export async function exportForm129AExcel(
     }
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Treasury Department - Municipality of Mapandan";
+    workbook.creator = "Treasury Department - Municipality of E-LGU";
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet("General Collections", {
@@ -670,7 +670,7 @@ export async function exportForm129AExcel(
 
     const treasurerDisplay = options.treasurerName?.trim() || "Teresita S. Eden";
     sheet.mergeCells("A4:AE4");
-    sheet.getCell("A4").value = `Of ${treasurerDisplay}, Municipal Treasurer, Municipality of MAPANDAN, Province of Pangasinan made during the period from ${periodDateRange}`;
+    sheet.getCell("A4").value = `Of ${treasurerDisplay}, Municipal Treasurer, Municipality of E-LGU, Province of {{PROVINCE_NAME}} made during the period from ${periodDateRange}`;
     sheet.getCell("A4").font = { name: "Arial", size: 10 };
     sheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
 

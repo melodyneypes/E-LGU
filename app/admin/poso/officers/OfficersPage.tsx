@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import lguConfig from "@/config/lgu.config.json";
 
 export interface OfficerItem {
     id: string;
@@ -526,7 +527,7 @@ export default function OfficersPage({
                                         defaultValue={editingData?.email || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="officer.juandelacruz@mapandan.gov.ph"
+                                        placeholder={lguConfig.poso.email}
                                     />
                                 </div>
 

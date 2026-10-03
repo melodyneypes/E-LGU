@@ -195,7 +195,7 @@ export function OfficialDetailView({ official }: { official: Official; themeColo
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xl md:text-2xl font-black italic tracking-tighter text-primary uppercase leading-tight">Active Official</p>
-                                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic">Serving the people of Mapandan</p>
+                                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic">Serving the people of our municipality</p>
                                 </div>
                             </div>
                         </div>
@@ -208,7 +208,7 @@ export function OfficialDetailView({ official }: { official: Official; themeColo
                             </div>
                             <div className="prose prose-xl prose-slate dark:prose-invert max-w-none">
                                 <p className="text-sm md:text-xl text-slate-600 dark:text-slate-300 font-medium italic leading-relaxed whitespace-pre-wrap">
-                                    {official.bio || `Hon. ${official.name} is a dedicated public servant committed to the progress and welfare of Mapandan. Through transparent governance and community-focused initiatives, the office continues to work towards sustainable development and improved local services.`}
+                                    {official.bio || `Hon. ${official.name} is a dedicated public servant committed to the progress and welfare of our municipality. Through transparent governance and community-focused initiatives, the office continues to work towards sustainable development and improved local services.`}
                                 </p>
                             </div>
                         </section>

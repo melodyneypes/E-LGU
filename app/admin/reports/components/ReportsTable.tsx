@@ -137,7 +137,7 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
         }, 2000);
     };
 
-    const uniqueBarangays = ["Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez", "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"];
+    const uniqueBarangays = ["{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}", "{{BARANGAY_NAME}}"];
 
     const isFirstMount = React.useRef(true);
 

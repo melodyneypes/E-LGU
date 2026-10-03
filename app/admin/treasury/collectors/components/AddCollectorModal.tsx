@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Ticket, Loader2, X, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { createCollector } from "../actions";
+import lguConfig from "@/config/lgu.config.json";
 
 export function AddCollectorModal() {
     const { isAddOpen, setIsAddOpen, themeColor, triggerRefresh, setCollectors } = useCollectors();
@@ -105,7 +106,7 @@ export function AddCollectorModal() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="e.g. juan.collector@mapandan.gov.ph"
+                            placeholder={lguConfig.seedAccounts.treasuryEmail}
                             autoComplete="off"
                             className="h-10 text-xs bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium"
                             required

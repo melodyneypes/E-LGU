@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { generateQueueNumber } from "@/lib/queue";
+import lguConfig from "@/config/lgu.config.json";
 
 // Simple in-memory cache for matched health center per user to reduce DB queries on navigation
 const matchedCenterCache = new Map<string, Promise<any> | any>();
@@ -69,10 +70,10 @@ export async function getMatchedCenterForUser(user: any) {
 
         const userRole = (user.role || "").toUpperCase();
         const assignedDoctorId = user.assignedDoctorId ? String(user.assignedDoctorId) : null;
-        // Global admin accounts (rhu@mapandan.gov.ph, admin@mapandan.gov.ph, LGU admin) without medical personnel link see all centers
+        // Configured RHU and LGU administrators can view all centers without a medical personnel link.
         if (
-            userEmail === "rhu@mapandan.gov.ph" ||
-            userEmail === "admin@mapandan.gov.ph" ||
+            userEmail === lguConfig.seedAccounts.rhuEmail.toLowerCase() ||
+            userEmail === lguConfig.seedAccounts.adminEmail.toLowerCase() ||
             userDept === "lgu" ||
             (userRole === "ADMIN" && (userDept === "lgu" || !userDept))
         ) {
@@ -119,9 +120,9 @@ export async function getMatchedCenterForUser(user: any) {
                 return (
                     (c.accountEmail && String(c.accountEmail).toLowerCase() === userEmail) ||
                     (c.pharmacyEmail && String(c.pharmacyEmail).toLowerCase() === userEmail) ||
-                    (userEmail.includes("lalas") && centerNameLower.includes("lalas")) ||
-                    (userName.includes("lalas") && centerNameLower.includes("lalas")) ||
-                    (userDept.includes("lalas") && centerNameLower.includes("lalas")) ||
+                    (userEmail.includes("{{BARANGAY_NAME}}") && centerNameLower.includes("{{BARANGAY_NAME}}")) ||
+                    (userName.includes("{{BARANGAY_NAME}}") && centerNameLower.includes("{{BARANGAY_NAME}}")) ||
+                    (userDept.includes("{{BARANGAY_NAME}}") && centerNameLower.includes("{{BARANGAY_NAME}}")) ||
                     (userEmail.includes("main") && centerNameLower.includes("main"))
                 );
             });
@@ -162,12 +163,12 @@ export async function getMatchedCenterForUser(user: any) {
         }
 
         // 5. Virtual fallback by email/name keywords
-        if (userEmail.includes("lalas") || userName.includes("lalas") || userDept.includes("lalas")) {
+        if (userEmail.includes("{{BARANGAY_NAME}}") || userName.includes("{{BARANGAY_NAME}}") || userDept.includes("{{BARANGAY_NAME}}")) {
             return {
-                id: "lalas-medical-clinic",
-                name: "Lalas Medical Clinic",
-                code: "RHU-LALAS",
-                barangay: "Lalas"
+                id: "{{BARANGAY_NAME}}-medical-clinic",
+                name: "{{BARANGAY_NAME}} Medical Clinic",
+                code: "RHU-{{BARANGAY_NAME}}",
+                barangay: "{{BARANGAY_NAME}}"
             };
         }
 
@@ -176,7 +177,7 @@ export async function getMatchedCenterForUser(user: any) {
                 id: "main-rhu",
                 name: "Main Rural Health Unit (RHU)",
                 code: "RHU-MAIN",
-                barangay: "Poblacion"
+                barangay: "{{BARANGAY_NAME}}"
             };
         }
 
@@ -246,7 +247,7 @@ export async function getRHUAdminTransactions(params?: {
         if (matchedCenter) {
             const centerId = matchedCenter.id;
             const centerNameLower = (matchedCenter.name || "").toLowerCase();
-            const isLalas = centerNameLower.includes("lalas");
+            const isLalas = centerNameLower.includes("{{BARANGAY_NAME}}");
             const isMain = centerNameLower.includes("main");
 
             conditions.push(Prisma.sql`
@@ -255,8 +256,8 @@ export async function getRHUAdminTransactions(params?: {
                     OR (LOWER(t."additionalData"->>'healthCenterName') LIKE ${`%${centerNameLower}%`})
                     OR (${centerNameLower} LIKE CONCAT('%', LOWER(t."additionalData"->>'healthCenterName'), '%'))
                     OR (${isLalas} = TRUE AND (
-                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%lalas%'
-                        OR LOWER(t."additionalData"::text) LIKE '%lalas%'
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%{{BARANGAY_NAME}}%'
+                        OR LOWER(t."additionalData"::text) LIKE '%{{BARANGAY_NAME}}%'
                         OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
                     ))
                     OR (${isMain} = TRUE AND (
@@ -679,7 +680,7 @@ export async function getRHUDashboardStats(sessionUser?: any) {
         if (matchedCenter) {
             const centerId = matchedCenter.id;
             const centerNameLower = (matchedCenter.name || "").toLowerCase();
-            const isLalas = centerNameLower.includes("lalas");
+            const isLalas = centerNameLower.includes("{{BARANGAY_NAME}}");
             const isMain = centerNameLower.includes("main");
 
             conditions.push(Prisma.sql`
@@ -688,8 +689,8 @@ export async function getRHUDashboardStats(sessionUser?: any) {
                     OR (LOWER(t."additionalData"->>'healthCenterName') LIKE ${`%${centerNameLower}%`})
                     OR (${centerNameLower} LIKE CONCAT('%', LOWER(t."additionalData"->>'healthCenterName'), '%'))
                     OR (${isLalas} = TRUE AND (
-                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%lalas%'
-                        OR LOWER(t."additionalData"::text) LIKE '%lalas%'
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%{{BARANGAY_NAME}}%'
+                        OR LOWER(t."additionalData"::text) LIKE '%{{BARANGAY_NAME}}%'
                         OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
                     ))
                     OR (${isMain} = TRUE AND (
@@ -1035,9 +1036,9 @@ export async function registerRHUWalkInConsultation(payload: {
             email: payload.email?.trim() || "",
             houseNumber: payload.houseNumber?.trim() || "",
             street: payload.street?.trim() || "",
-            barangay: payload.barangay?.trim() || "Poblacion",
-            municipality: payload.municipality?.trim() || "Mapandan",
-            province: payload.province?.trim() || "Pangasinan",
+            barangay: payload.barangay?.trim() || "{{BARANGAY_NAME}}",
+            municipality: payload.municipality?.trim() || "{{LGU_NAME}}",
+            province: payload.province?.trim() || "{{PROVINCE_NAME}}",
             philhealthNumber: payload.philhealthNumber?.trim() || "",
         };
 
@@ -1210,7 +1211,7 @@ export async function getRHUCheckedInVitalsCount() {
         if (matchedCenter) {
             const centerId = matchedCenter.id;
             const centerNameLower = (matchedCenter.name || "").toLowerCase();
-            const isLalas = centerNameLower.includes("lalas");
+            const isLalas = centerNameLower.includes("{{BARANGAY_NAME}}");
             const isMain = centerNameLower.includes("main");
 
             conditions.push(Prisma.sql`
@@ -1219,8 +1220,8 @@ export async function getRHUCheckedInVitalsCount() {
                     OR (LOWER(t."additionalData"->>'healthCenterName') LIKE ${`%${centerNameLower}%`})
                     OR (${centerNameLower} LIKE CONCAT('%', LOWER(t."additionalData"->>'healthCenterName'), '%'))
                     OR (${isLalas} = TRUE AND (
-                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%lalas%'
-                        OR LOWER(t."additionalData"::text) LIKE '%lalas%'
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%{{BARANGAY_NAME}}%'
+                        OR LOWER(t."additionalData"::text) LIKE '%{{BARANGAY_NAME}}%'
                         OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
                     ))
                     OR (${isMain} = TRUE AND (
@@ -1520,9 +1521,9 @@ export async function injectDailyFollowUpQueue() {
                 lastName: fu.patient_name?.split(" ").slice(1).join(" ") || "Patient",
                 middleName: "",
                 gender: "UNSPECIFIED",
-                barangay: "Poblacion",
-                municipality: "Mapandan",
-                province: "Pangasinan"
+                barangay: "{{BARANGAY_NAME}}",
+                municipality: "{{LGU_NAME}}",
+                province: "{{PROVINCE_NAME}}"
             };
 
             let userId: string | null = null;
@@ -1732,9 +1733,9 @@ export async function checkInRHUFollowUpPatient(followUpId: string) {
             lastName: fu.patient_name?.split(" ").slice(1).join(" ") || "Patient",
             middleName: "",
             gender: "UNSPECIFIED",
-            barangay: "Poblacion",
-            municipality: "Mapandan",
-            province: "Pangasinan"
+            barangay: "{{BARANGAY_NAME}}",
+            municipality: "{{LGU_NAME}}",
+            province: "{{PROVINCE_NAME}}"
         };
 
         let userId: string | null = null;
@@ -1936,5 +1937,4 @@ export async function getPatientConsultationHistory(params: {
         return { success: false, error: error.message || "Failed to fetch patient consultation history." };
     }
 }
-
 

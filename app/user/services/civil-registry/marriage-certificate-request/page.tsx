@@ -19,6 +19,7 @@ import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { BackNextButton } from "../_components/back-next-button";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
+import lguConfig from "@/config/lgu.config.json";
 
 
 import { Button } from "@/components/ui/button";
@@ -116,13 +117,9 @@ interface FormState {
     informantAddress?: string;
 }
 
-const LOCAL_FALLBACK_PROVINCES = [
-    "PANGASINAN", "METRO MANILA", "LA UNION", "TARLAC", "BENGUET", "ILOCOS SUR", "ILOCOS NORTE", "NUEVA ECIJA", "PAMPANGA", "BULACAN"
-];
+const LOCAL_FALLBACK_PROVINCES = [lguConfig.identity.province];
 
-const LOCAL_FALLBACK_CITIES = [
-    "MAPANDAN", "DAGUPAN", "URDANETA", "SAN CARLOS", "ALAMINOS", "MANGALDAN", "CALASIAO", "SAN JACINTO", "MANAOAG", "STA. BARBARA", "BINALONAN", "POZORRUBIO", "LAOAC"
-];
+const LOCAL_FALLBACK_CITIES = [lguConfig.identity.name];
 
 export default function MarriageCertificateRequestPage() {
     const router = useRouter();
@@ -136,8 +133,8 @@ export default function MarriageCertificateRequestPage() {
 
     // Place of marriage dropdown and text states
     const [placeCountry, setPlaceCountry] = useState("PHILIPPINES");
-    const [placeProvince, setPlaceProvince] = useState("PANGASINAN");
-    const [placeCity, setPlaceCity] = useState("MAPANDAN");
+    const [placeProvince, setPlaceProvince] = useState("{{PROVINCE_NAME}}");
+    const [placeCity, setPlaceCity] = useState("E-LGU");
     const [customCountry, setCustomCountry] = useState("");
     const [customProvince, setCustomProvince] = useState("");
     const [customCity, setCustomCity] = useState("");
@@ -301,7 +298,7 @@ export default function MarriageCertificateRequestPage() {
                             setCustomCountry(country);
                         }
 
-                        const knownProvinces = ["PANGASINAN", "METRO MANILA", "LA UNION", "TARLAC", "BENGUET", "ILOCOS SUR", "ILOCOS NORTE", "NUEVA ECIJA", "PAMPANGA", "BULACAN"];
+                        const knownProvinces = [lguConfig.identity.province.toUpperCase()];
                         if (knownProvinces.includes(province)) {
                             setPlaceProvince(province);
                         } else {
@@ -309,7 +306,7 @@ export default function MarriageCertificateRequestPage() {
                             setCustomProvince(province);
                         }
 
-                        const knownCities = ["MAPANDAN", "DAGUPAN", "URDANETA", "SAN CARLOS", "ALAMINOS", "MANGALDAN", "CALASIAO", "SAN JACINTO", "MANAOAG", "STA. BARBARA", "BINALONAN", "POZORRUBIO", "LAOAC"];
+                        const knownCities = [lguConfig.identity.name.toUpperCase()];
                         if (knownCities.includes(city)) {
                             setPlaceCity(city);
                         } else {
@@ -320,7 +317,7 @@ export default function MarriageCertificateRequestPage() {
                         const province = parts[1];
                         const city = parts[0];
 
-                        const knownProvinces = ["PANGASINAN", "METRO MANILA", "LA UNION", "TARLAC", "BENGUET", "ILOCOS SUR", "ILOCOS NORTE", "NUEVA ECIJA", "PAMPANGA", "BULACAN"];
+                        const knownProvinces = [lguConfig.identity.province.toUpperCase()];
                         if (knownProvinces.includes(province)) {
                             setPlaceProvince(province);
                         } else {
@@ -328,7 +325,7 @@ export default function MarriageCertificateRequestPage() {
                             setCustomProvince(province);
                         }
 
-                        const knownCities = ["MAPANDAN", "DAGUPAN", "URDANETA", "SAN CARLOS", "ALAMINOS", "MANGALDAN", "CALASIAO", "SAN JACINTO", "MANAOAG", "STA. BARBARA", "BINALONAN", "POZORRUBIO", "LAOAC"];
+                        const knownCities = [lguConfig.identity.name.toUpperCase()];
                         if (knownCities.includes(city)) {
                             setPlaceCity(city);
                         } else {
@@ -431,11 +428,16 @@ export default function MarriageCertificateRequestPage() {
                         const sorted = data.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
                         setCitiesList(sorted);
 
-                        // Default to MAPANDAN if Pangasinan is selected and MAPANDAN is in the list
-                        if (placeProvince.toUpperCase() === "PANGASINAN") {
-                            const mapandanObj = sorted.find((c: any) => c && c.name && c.name.toUpperCase().includes("MAPANDAN"));
-                            if (mapandanObj && mapandanObj.name) {
-                                setPlaceCity(mapandanObj.name.toUpperCase());
+                        // Default to E-LGU if in the list
+                        if (placeProvince.toUpperCase() === "{{PROVINCE_NAME}}") {
+                            const elguObj = sorted.find((c: any) =>
+                                c && c.name && (
+                                    c.name.toUpperCase().includes("E-LGU") ||
+                                    c.name.toUpperCase().includes(lguConfig.identity.name.toUpperCase())
+                                )
+                            );
+                            if (elguObj && elguObj.name) {
+                                setPlaceCity(elguObj.name.toUpperCase());
                             }
                         }
                     } else {
@@ -495,7 +497,7 @@ export default function MarriageCertificateRequestPage() {
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
                         r.municipality || "",
-                        r.province || "Pangasinan"
+                        r.province || "{{PROVINCE_NAME}}"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 
@@ -991,7 +993,7 @@ export default function MarriageCertificateRequestPage() {
                     </h1>
 
                     <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
-                        Request certified copies of marriage certificates registered in Mapandan. Complete the form and upload required identifications to verify your request.
+                        Request certified copies of marriage certificates registered in our municipality. Complete the form and upload required identifications to verify your request.
                     </p>
                 </div>
 
@@ -1253,7 +1255,7 @@ export default function MarriageCertificateRequestPage() {
                                             value={form.contactNumber}
                                             onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                             className={cn("h-10 rounded-xl text-xs md:text-sm font-bold", (showErrors && !form.contactNumber) && "border-2 border-red-500")}
-                                            placeholder="e.g. 09123456789"
+                                            placeholder="09XX-XXX-XXXX"
                                             maxLength={11}
                                         />
                                         <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
@@ -1374,8 +1376,8 @@ export default function MarriageCertificateRequestPage() {
                                                 setPlaceProvince("OTHER");
                                                 setPlaceCity("OTHER");
                                             } else {
-                                                setPlaceProvince("PANGASINAN");
-                                                setPlaceCity("MAPANDAN");
+                                                setPlaceProvince("{{PROVINCE_NAME}}");
+                                                setPlaceCity("E-LGU");
                                             }
                                         }}>
                                             <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs bg-white dark:bg-slate-900 font-bold animate-in fade-in duration-200">
@@ -1398,8 +1400,8 @@ export default function MarriageCertificateRequestPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Province <span className="text-red-500">*</span></Label>
                                             <Select value={placeProvince} onValueChange={(val) => {
                                                 setPlaceProvince(val);
-                                                if (val === "PANGASINAN") {
-                                                    setPlaceCity("MAPANDAN");
+                                                if (val === "{{PROVINCE_NAME}}") {
+                                                    setPlaceCity("E-LGU");
                                                 } else {
                                                     setPlaceCity("OTHER");
                                                 }
@@ -1450,7 +1452,7 @@ export default function MarriageCertificateRequestPage() {
                                                             <SelectItem value="OTHER">OTHER CITY/MUNICIPALITY...</SelectItem>
                                                         </>
                                                     ) : (
-                                                        placeProvince.toUpperCase() === "PANGASINAN" ? (
+                                                        placeProvince.toUpperCase() === "{{PROVINCE_NAME}}" ? (
                                                             <>
                                                                 {LOCAL_FALLBACK_CITIES.map((c) => (
                                                                     <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -1700,7 +1702,7 @@ export default function MarriageCertificateRequestPage() {
                                     <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
                                         <div className="font-black uppercase text-[11px] tracking-wider text-slate-800 dark:text-white">DATA PRIVACY & CERTIFICATION AGREEMENT</div>
                                         <div className="text-[10px] text-slate-500 italic mt-1 leading-relaxed">
-                                            BY SUBMITTING, I CERTIFY THAT ALL INFORMATION PROVIDED IS TRUE AND CORRECT. I AM AWARE OF THE DATA PRIVACY POLICY OF MAPANDAN. CLICK TO REVIEW AGREEMENT.
+                                            BY SUBMITTING, I CERTIFY THAT ALL INFORMATION PROVIDED IS TRUE AND CORRECT. I AM AWARE OF THE DATA PRIVACY POLICY OF THE MUNICIPALITY. CLICK TO REVIEW AGREEMENT.
                                         </div>
                                         {showErrors && !policyAccepted && (
                                             <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse mt-1">Please accept the Privacy Policy & Terms before submitting.</p>

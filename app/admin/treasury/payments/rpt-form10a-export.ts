@@ -125,7 +125,7 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
     let propertyClass = "Res";
     let brgyShare = 0;
 
-    const brgyName = snap.barangay || additional.barangay || resident.barangay || "Mapandan";
+    const brgyName = snap.barangay || additional.barangay || resident.barangay || "E-LGU";
 
     if (isRpt) {
         const rawType = String(additional.propertyType || additional.classification || "Residential").toLowerCase();
@@ -311,7 +311,7 @@ export async function exportForm10APdf(
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text("Collected in the Municipality of MAPANDAN, Province of PANGASINAN", PAGE_W / 2, 21.5, { align: "center" });
+    doc.text("Collected in the Municipality of E-LGU, Province of {{PROVINCE_NAME}}", PAGE_W / 2, 21.5, { align: "center" });
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
@@ -533,7 +533,7 @@ export async function exportForm10AExcel(
     }
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Treasury Department - Municipality of Mapandan";
+    workbook.creator = "Treasury Department - Municipality of E-LGU";
     workbook.created = new Date();
 
     const sheetName = options.category && options.category.toUpperCase() !== "ALL"
@@ -565,7 +565,7 @@ export async function exportForm10AExcel(
     sheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
 
     sheet.mergeCells("A5:X5");
-    sheet.getCell("A5").value = "Collected in the Municipality of MAPANDAN, Province of PANGASINAN";
+    sheet.getCell("A5").value = "Collected in the Municipality of E-LGU, Province of {{PROVINCE_NAME}}";
     sheet.getCell("A5").font = { name: "Arial", size: 10 };
     sheet.getCell("A5").alignment = { horizontal: "center", vertical: "middle" };
 

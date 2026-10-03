@@ -9,7 +9,7 @@ import MDRRMOAmbulanceClient from "./MDRRMOAmbulanceClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Ambulance Fleet Registry | MDRRMO Mapandan",
+    title: "Ambulance Fleet Registry | MDRRMO",
     description: "Manage emergency ambulance vehicles, license plates, station deployments, assigned drivers, and dispatch hotlines.",
 };
 

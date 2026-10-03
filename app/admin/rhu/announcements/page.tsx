@@ -9,7 +9,7 @@ import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "RHU Announcements | Mapandan Admin",
+    title: "RHU Announcements | {{LGU_NAME}} Admin",
     description: "Official Rural Health Unit health advisories and public announcements.",
 };
 

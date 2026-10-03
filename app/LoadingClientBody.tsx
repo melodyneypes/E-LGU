@@ -13,7 +13,7 @@ interface LoadingProps {
 
 export default function LoadingClientBody({ logoUrl, brand1, brand2, themeColor }: LoadingProps) {
     const [phase, setPhase] = useState(0);
-    const fullBrand = `${brand1 || "E"}${brand2 || "Mapandan"}`;
+    const fullBrand = `${brand1 || "E-"}${brand2 || "LGU"}`;
     const phrases = [
         `Accessing ${fullBrand} `
     ];
@@ -72,7 +72,7 @@ export default function LoadingClientBody({ logoUrl, brand1, brand2, themeColor 
                 <div className="flex flex-col items-center gap-8">
                     <div className="flex items-center gap-0 overflow-hidden px-4 py-2">
                         {/* First Word Staggered */}
-                        {(brand1 || "MAPANDAN").split("").map((char: string, i: number) => (
+                        {(brand1 || "E-").split("").map((char: string, i: number) => (
                             <motion.span
                                 key={`b1-${i}`}
                                 initial={{ y: 60, opacity: 0, rotateX: 90 }}
@@ -92,7 +92,7 @@ export default function LoadingClientBody({ logoUrl, brand1, brand2, themeColor 
 
 
                         {/* Second Word Staggered */}
-                        {(brand2 || "PORTAL").split("").map((char: string, i: number) => (
+                        {(brand2 || "LGU").split("").map((char: string, i: number) => (
                             <motion.span
                                 key={`b2-${i}`}
                                 initial={{ y: 60, opacity: 0, rotateX: 90 }}

@@ -266,7 +266,7 @@ export function MayorDailyRequestsReportClient({
                         Daily <span style={{ color: themeColor }}>Requests</span>
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
-                        Mapandan Executive Oversight: Monitor municipal requests and breakdown logs.
+                        E-LGU Executive Oversight: Monitor municipal requests and breakdown logs.
                     </p>
                 </div>
 

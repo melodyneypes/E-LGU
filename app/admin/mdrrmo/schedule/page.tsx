@@ -9,7 +9,7 @@ import ScheduleClient from "./ScheduleClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Ambulance Scheduling & Dispatch | MDRRMO Mapandan",
+    title: "Ambulance Scheduling & Dispatch | MDRRMO",
     description: "Coordinate patient hospital transfers, emergency ambulance dispatches, driver shifts, and standby rotations.",
 };
 

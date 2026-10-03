@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sanitizeString, sanitizeObject } from "@/lib/validation";
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
+import lguConfig from "@/config/lgu.config.json";
 
 export async function cleanupPastDueRHUAppointments(userId?: string) {
     try {
@@ -387,7 +388,7 @@ export async function updateCenterAppointmentConfig(
                 (c.userId && String(c.userId) === String(session.user.id)) ||
                 (assignedDoctorId && c.userId && String(c.userId) === String(assignedDoctorId)) ||
                 (c.accountEmail && email && String(c.accountEmail).toLowerCase() === String(email).toLowerCase()) ||
-                (email && String(email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
+                (email && String(email).toLowerCase().includes("{{BARANGAY_NAME}}") && String(c.name).toLowerCase().includes("{{BARANGAY_NAME}}")) ||
                 (email && String(email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
             );
             if (!matchedCenter || matchedCenter.id !== healthCenterId) {
@@ -626,21 +627,21 @@ export async function deleteCenterSpecialEvent(healthCenterId: string, eventId: 
 const defaultFleet = [
     {
         unit: "Ambulance Unit 1 (Foton Transporter)",
-        station: "Poblacion Main Station",
+        station: "{{BARANGAY_NAME}} Main Station",
         status: "STANDBY",
         statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
         plateNumber: "SAB-1234"
     },
     {
         unit: "Ambulance Unit 2 (Toyota Hiace)",
-        station: "Luyan South Station",
+        station: "{{BARANGAY_NAME}} Station",
         status: "ON DUTY",
         statusColor: "text-blue-500 bg-blue-500/10 border-blue-500/20",
         plateNumber: "SAB-5678"
     },
     {
         unit: "Ambulance Unit 3 (Barangay Response)",
-        station: "Nilombot Station",
+        station: "{{BARANGAY_NAME}} Station",
         status: "STANDBY",
         statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
         plateNumber: "SAB-9012"
@@ -648,9 +649,9 @@ const defaultFleet = [
 ];
 
 const defaultHotlines = [
-    { name: "RHU Emergency Dispatch", number: "0917-555-0199" },
-    { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234" },
-    { name: "Municipal Health Officer", number: "0920-123-4567" }
+    { name: "RHU Emergency Dispatch", number: lguConfig.contact.hotlines.health },
+    { name: "MDRRMO Emergency Hotline", number: lguConfig.contact.hotlines.disasterResponse },
+    { name: "Municipal Health Officer", number: lguConfig.contact.hotlines.healthOfficer }
 ];
 
 export async function getAmbulanceSettings() {

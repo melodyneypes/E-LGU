@@ -29,8 +29,8 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     projects: { defaultCols: 3, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "emapandan_metric_cards_individual_grid_v5";
-const ORDER_STORAGE_KEY = "emapandan_metric_cards_order_v5";
+const STORAGE_KEY = "E-LGU_metric_cards_individual_grid_v5";
+const ORDER_STORAGE_KEY = "E-LGU_metric_cards_order_v5";
 
 export function ConfigurableMetricCardsSection({
     residentsCount,

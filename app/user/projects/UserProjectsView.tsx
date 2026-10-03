@@ -105,7 +105,7 @@ export function UserProjectsView({ initialProjects = [] }: { initialProjects: an
             </div>
 
             <p className="text-sm md:text-lg text-slate-500 dark:text-slate-400 font-medium italic max-w-2xl leading-relaxed px-2 md:px-0">
-                Monitor the infrastructure and social development projects shaping the future of Mapandan. Transparency and progress in every brick laid.
+                Monitor the infrastructure and social development projects shaping the future of our municipality. Transparency and progress in every brick laid.
             </p>
 
             {/* Grid */}

@@ -20,6 +20,8 @@ import { useTheme } from "next-themes";
 import { useBarangay } from "@/components/providers/BarangayProvider";
 import { BarangaySelectionModal } from "@/components/shared/BarangaySelectionModal";
 import { getTransactionTypes } from "@/app/admin/transactions/actions";
+import lguConfig from "@/config/lgu.config.json";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 interface NavbarProps {
     logoUrl?: string;
@@ -30,14 +32,12 @@ interface NavbarProps {
     isMaintenanceActive?: boolean;
 }
 
-export function Navbar({
-    logoUrl,
-    brandWord1 = "E",
-    brandWord2 = "Mapandan",
-    themeColor = "#2563eb",
-    barangays = [],
-    isMaintenanceActive = false
-}: NavbarProps) {
+export function Navbar({ isMaintenanceActive = false }: NavbarProps) {
+    const barangays = configuredBarangays;
+    const themeColor = lguConfig.theme.primary;
+    const logoUrl = lguConfig.assets.logo;
+    const brandWord1 = lguConfig.identity.brandWord1;
+    const brandWord2 = lguConfig.identity.brandWord2;
     const { data: session, status } = useSession();
     const pathname = usePathname();
     const [isOpen, setIsOpen] = React.useState(false);
@@ -79,7 +79,7 @@ export function Navbar({
         },
         {
             name: "Live Road Advisory",
-            href: "/road-advisory/mapandan",
+            href: "/road-advisory/local",
             desc: "Active Road Closures, Floodings & Detours",
             icon: Compass,
             color: "text-amber-500 bg-amber-500/10"
@@ -106,7 +106,7 @@ export function Navbar({
             href: "/user/services/fencing-permit",
             desc: "Perimeter & Enclosure Permits",
             icon: Shield,
-            color: "text-emerald-500 bg-emerald-500/10"
+            color: "text-cyan-500 bg-cyan-500/10"
         },
         {
             name: "Demolition Permit",
@@ -119,7 +119,7 @@ export function Navbar({
 
     const serviceCategories = React.useMemo(() => [
         { name: "Civil Registry", href: "/user/services/civil-registry", desc: "Birth, Marriage, Death Certs & Endorsements", icon: FileText, color: "text-blue-500 bg-blue-500/10" },
-        { name: "Business Permit", href: "/user/services/business-permit-appointment", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
+        { name: "Business Permit", href: "/user/services/business-permit-appointment", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-cyan-500 bg-cyan-500/10" },
         {
             name: "Engineering Permits",
             href: "/user/services/building-permit",
@@ -132,7 +132,7 @@ export function Navbar({
         { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
         { name: "Real Property Tax (RPT)", href: "/user/services/rpt-appointment", desc: "Amilyar Payment & Tax Clearance", icon: Building2, color: "text-purple-500 bg-purple-500/10" },
         { name: "Rural Health Unit (RHU)", href: "/user/services/rural-health-unit", desc: "Medical Check-up & Clinical Consultation", icon: Activity, color: "text-rose-500 bg-rose-500/10" },
-        { name: "POSO Portal", href: "/poso/mapandan", desc: "Traffic Violations & Citation Inquiries", icon: ShieldAlert, color: "text-cyan-500 bg-cyan-500/10" },
+        { name: "POSO Portal", href: "/poso/portal", desc: "Traffic Violations & Citation Inquiries", icon: ShieldAlert, color: "text-cyan-500 bg-cyan-500/10" },
     ], [buildingSubPermits]);
 
     const updatesItems = React.useMemo(() => [
@@ -431,12 +431,21 @@ export function Navbar({
                         className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg overflow-hidden relative"
                         style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                     >
-                        {logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="Logo" className="w-full h-full object-cover p-1.5" />
-                        ) : (
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={logoUrl || lguConfig.assets.logo}
+                            alt="E-LGU Logo"
+                            onError={(e) => {
+                                const target = e.currentTarget;
+                                target.style.display = "none";
+                                const fallback = target.nextElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.display = "flex";
+                            }}
+                            className="w-full h-full object-contain p-1"
+                        />
+                        <div className="hidden w-full h-full items-center justify-center">
                             <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                        )}
+                        </div>
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </motion.div>
                     <div className="flex flex-col">
@@ -474,7 +483,7 @@ export function Navbar({
                                 className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider"
                                 style={{ color: selectedBarangay !== "All" ? themeColor : (isDark ? darkColor : color) }}
                             >
-                                {selectedBarangay === "All" ? "Mapandan" : selectedBarangay}
+                                {selectedBarangay === "All" ? "All Barangays" : selectedBarangay}
                             </motion.span>
                         </div>
                     </button>

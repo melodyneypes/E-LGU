@@ -253,7 +253,7 @@ export function BploAnnouncementModal({ initialAnnouncements }: { initialAnnounc
                         </div>
                     ) : (
                         <span className="text-[10px] text-slate-400 font-medium italic">
-                            Official Municipal Advisory • Mapandan BPLO
+                            Official Municipal Advisory • E-LGU BPLO
                         </span>
                     )}
 

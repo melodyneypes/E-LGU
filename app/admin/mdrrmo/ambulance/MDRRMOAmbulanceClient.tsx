@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 import { 
     Truck, 
     Trash2, 
@@ -632,7 +633,7 @@ export default function MDRRMOAmbulanceClient({
                                 <Input
                                     value={ambulanceForm.station}
                                     onChange={(e) => setAmbulanceForm({ ...ambulanceForm, station: e.target.value })}
-                                    placeholder="e.g. Poblacion Central Station"
+                                    placeholder={lguConfig.contact.address}
                                     className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                                 />
                             </div>
@@ -738,7 +739,7 @@ export default function MDRRMOAmbulanceClient({
                                 required
                                 value={hotlineForm.name}
                                 onChange={(e) => setHotlineForm({ ...hotlineForm, name: e.target.value })}
-                                placeholder="e.g. MDRRMO Mapandan Command Hotline"
+                                placeholder="e.g. MDRRMO Command Hotline"
                                 className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                             />
                         </div>
@@ -751,7 +752,7 @@ export default function MDRRMOAmbulanceClient({
                                 required
                                 value={hotlineForm.number}
                                 onChange={(e) => setHotlineForm({ ...hotlineForm, number: e.target.value })}
-                                placeholder="e.g. 0917-555-0199 or (075) 529-1234"
+                                placeholder={lguConfig.contact.hotlines.disasterResponse}
                                 className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs font-mono"
                             />
                         </div>

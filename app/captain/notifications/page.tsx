@@ -18,7 +18,7 @@ export default async function CaptainDirectivesPage() {
         redirect("/auth/login");
     }
 
-    const managedBarangay = user?.managedBarangay || "Apaya";
+    const managedBarangay = user?.managedBarangay || "{{BARANGAY_NAME}}";
     const notifRes = await getCaptainNotifications();
     const directives = notifRes.success ? notifRes.notifications || [] : [];
 

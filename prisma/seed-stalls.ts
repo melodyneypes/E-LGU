@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import lguConfig from "../config/lgu.config.json";
 
 const prisma = new PrismaClient();
 
@@ -47,41 +48,41 @@ async function main() {
   console.log("-> Seeding Sample Vendor Users & Collector...");
   
   const vendor1 = await prisma.user.upsert({
-    where: { email: "vendor.alingnena@mapandan.gov.ph" },
+    where: { email: lguConfig.seedAccounts.marketVendor1Email },
     update: {},
     create: {
-      name: "Aling Nena Meat Store",
-      email: "vendor.alingnena@mapandan.gov.ph",
+      name: lguConfig.seedNames.marketVendor1,
+      email: lguConfig.seedAccounts.marketVendor1Email,
       role: "USER",
     },
   });
 
   const vendor2 = await prisma.user.upsert({
-    where: { email: "vendor.mangjuan@mapandan.gov.ph" },
+    where: { email: lguConfig.seedAccounts.marketVendor2Email },
     update: {},
     create: {
-      name: "Mang Juan Fish Trading",
-      email: "vendor.mangjuan@mapandan.gov.ph",
+      name: lguConfig.seedNames.marketVendor2,
+      email: lguConfig.seedAccounts.marketVendor2Email,
       role: "USER",
     },
   });
 
   const vendor3 = await prisma.user.upsert({
-    where: { email: "vendor.mariacruz@mapandan.gov.ph" },
+    where: { email: lguConfig.seedAccounts.marketVendor3Email },
     update: {},
     create: {
-      name: "Maria's Organic Vegetables",
-      email: "vendor.mariacruz@mapandan.gov.ph",
+      name: lguConfig.seedNames.marketVendor3,
+      email: lguConfig.seedAccounts.marketVendor3Email,
       role: "USER",
     },
   });
 
   const vendor4 = await prisma.user.upsert({
-    where: { email: "vendor.kainan@mapandan.gov.ph" },
+    where: { email: lguConfig.seedAccounts.marketVendor4Email },
     update: {},
     create: {
-      name: "Mapandan Native Carinderia",
-      email: "vendor.kainan@mapandan.gov.ph",
+      name: lguConfig.seedNames.marketVendor4,
+      email: lguConfig.seedAccounts.marketVendor4Email,
       role: "USER",
     },
   });
@@ -94,8 +95,8 @@ async function main() {
   if (!collectorUser) {
     collectorUser = await prisma.user.create({
       data: {
-        name: "Treasury Collector Officer",
-        email: "treasury.collector@mapandan.gov.ph",
+        name: lguConfig.seedNames.marketCollector,
+        email: lguConfig.seedAccounts.marketCollectorEmail,
         role: "TREASURY_STAFF",
         department: "TREASURY",
       },

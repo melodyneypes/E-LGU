@@ -193,8 +193,8 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
                         houseNumber: incomingProfile.houseNumber ?? currentSnapshot.houseNumber,
                         street: incomingProfile.street ?? currentSnapshot.street,
                         barangay: incomingProfile.barangay ?? currentSnapshot.barangay,
-                        municipality: incomingProfile.municipality ?? currentSnapshot.municipality ?? "Mapandan",
-                        province: incomingProfile.province ?? currentSnapshot.province ?? "Pangasinan",
+                        municipality: incomingProfile.municipality ?? currentSnapshot.municipality ?? "E-LGU",
+                        province: incomingProfile.province ?? currentSnapshot.province ?? "{{PROVINCE_NAME}}",
                     };
 
                     finalResidentSnapshot = typeof rawSnap === "string" ? JSON.stringify(mergedSnapshot) : mergedSnapshot;

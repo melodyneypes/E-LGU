@@ -12,7 +12,7 @@ export default function DetailContent({ item }: { item: any }) {
     const hasMap = item.googleMapsUrl || (item.latitude && item.longitude);
     const mapQuery = item.latitude && item.longitude 
         ? `${item.latitude},${item.longitude}`
-        : `${item.name}, ${item.address}, Mapandan, Pangasinan`;
+        : `${item.name}, ${item.address}, Municipality of E-LGU`;
     const publicMapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
     const hasQuickInfo = item.entranceFee || item.bestTimeToVisit;

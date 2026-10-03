@@ -4,8 +4,8 @@ import LoadingClientBody from "@/app/LoadingClientBody";
 
 export default async function Loading() {
     let logoUrl = "";
-    let brand1 = "MAPANDAN";
-    let brand2 = "PORTAL";
+    let brand1 = "E-";
+    let brand2 = "LGU";
     let themeColor = "#2563eb";
 
     try {
@@ -18,8 +18,8 @@ export default async function Loading() {
         ]);
 
         logoUrl = settings.get("site_logo") || "";
-        brand1 = settings.get("brand_word_1") || "MAPANDAN";
-        brand2 = settings.get("brand_word_2") || "PORTAL";
+        brand1 = settings.get("brand_word_1") || "E-";
+        brand2 = settings.get("brand_word_2") || "LGU";
         themeColor = settings.get("theme_color") || "#2563eb";
     } catch {
         // Safe fallback if database is briefly unreachable during transient reconnects

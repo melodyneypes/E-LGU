@@ -4,6 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import lguConfig from "@/config/lgu.config.json";
 
 async function getAuthenticatedUser() {
     const session = await getServerSession(authOptions);
@@ -118,7 +119,7 @@ export async function createBploAnnouncement(formData: FormData) {
                     ...createData,
                     department: "BPLO",
                     approvalStatus,
-                    submittedBy: `${user.name || "BPLO Staff"} (${user.email || "bplo@mapandan.gov.ph"})`,
+                    submittedBy: `${user.name || "BPLO Staff"} (${user.email || lguConfig.seedAccounts.bploEmail})`,
                     approvedBy: null,
                 }
             });
@@ -140,7 +141,7 @@ export async function createBploAnnouncement(formData: FormData) {
                     createData.imageUrl,
                     createData.authorEmail,
                     createData.authorId,
-                    `${user.name || "BPLO Staff"} (${user.email || "bplo@mapandan.gov.ph"})`,
+                    `${user.name || "BPLO Staff"} (${user.email || lguConfig.seedAccounts.bploEmail})`,
                     null,
                     createData.expiryDate,
                     createData.eventDate,

@@ -1,7 +1,10 @@
 import { MetadataRoute } from "next";
+import lguConfig from "@/config/lgu.config.json";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://emapandan.com";
+  const website = lguConfig.identity.website;
+  const baseUrl = website.includes("{{") ? null : website.replace(/\/+$/, "");
+  if (!baseUrl) return [];
   const now = new Date();
 
   // Core public routes to index on Google

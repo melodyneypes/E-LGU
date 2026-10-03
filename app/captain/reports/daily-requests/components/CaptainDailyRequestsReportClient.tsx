@@ -61,7 +61,7 @@ export function CaptainDailyRequestsReportClient({
     initialCategory = "ALL",
     initialStatus = "ALL",
     initialSearch = "",
-    managedBarangay = "Apaya",
+    managedBarangay = "{{BARANGAY_NAME}}",
 }: CaptainDailyRequestsReportClientProps) {
     const [transactions, setTransactions] = useState<Transaction[]>(initialData.transactions);
     const [totalCount, setTotalCount] = useState(initialData.totalCount);

@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export const metadata: Metadata = {
-    title: "RHU Medical Equipment & Stockroom Monitoring | EMapandan",
+    title: "RHU Medical Equipment & Stockroom Monitoring | E-LGU Admin",
     description: "RHU & BHS Medical Equipment, Room & Stockroom Monitoring System with PO, SO, RO, Discrepancy Returns, and COA Reports.",
 };
 

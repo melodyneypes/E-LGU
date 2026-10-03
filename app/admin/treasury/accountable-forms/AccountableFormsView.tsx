@@ -239,14 +239,14 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(30, 41, 59);
-            const brandTitle = `${settings?.brandWord1 || "Municipality of"} ${settings?.brandWord2 || "Mapandan"}`.toUpperCase();
+            const brandTitle = `${settings?.brandWord1 || "E-"} ${settings?.brandWord2 || "LGU"}`.toUpperCase();
             doc.text(brandTitle, PAGE_W / 2, currentY, { align: "center" });
             currentY += 4.5;
 
             doc.setFontSize(8);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(71, 85, 105);
-            doc.text("Province of Pangasinan · Office of the Municipal Treasurer", PAGE_W / 2, currentY, { align: "center" });
+            doc.text("Province of {{PROVINCE_NAME}} · Office of the Municipal Treasurer", PAGE_W / 2, currentY, { align: "center" });
             currentY += 4;
 
             doc.setFontSize(10);
@@ -316,7 +316,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                     doc.setFont("helvetica", "normal");
                     doc.setTextColor(148, 163, 184);
                     doc.text(
-                        `Page ${data.pageNumber} of ${doc.getNumberOfPages()} · Municipality of Mapandan Treasury System`,
+                        `Page ${data.pageNumber} of ${doc.getNumberOfPages()} · Municipality of E-LGU Treasury System`,
                         PAGE_W / 2,
                         PAGE_H - 7,
                         { align: "center" }
@@ -403,7 +403,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
             const worksheet = workbook.addWorksheet("Cancelled Accountable Forms");
 
             // Municipal Headers
-            worksheet.addRow(["MUNICIPALITY OF MAPANDAN — OFFICE OF THE MUNICIPAL TREASURER"]);
+            worksheet.addRow(["MUNICIPALITY OF E-LGU — OFFICE OF THE MUNICIPAL TREASURER"]);
             worksheet.addRow(["REGISTRY OF CANCELLED ACCOUNTABLE FORMS"]);
             worksheet.addRow([`Period: ${rangeLabel} | Exported: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`]);
             worksheet.addRow([]); // Blank spacer

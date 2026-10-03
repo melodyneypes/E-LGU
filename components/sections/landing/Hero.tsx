@@ -14,7 +14,7 @@ interface HeroProps {
     isMaintenanceActive?: boolean;
 }
 
-export function Hero({ slides, themeColor = "#2563eb", isMaintenanceActive = false }: HeroProps) {
+export function Hero({ slides, themeColor = "#0038a8", isMaintenanceActive = false }: HeroProps) {
     const [current, setCurrent] = React.useState(0);
 
 

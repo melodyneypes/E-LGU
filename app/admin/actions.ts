@@ -2148,8 +2148,8 @@ export async function addResident(formData: FormData) {
                     street: formData.get("street") as string || null,
                     sitio: formData.get("sitio") as string || null,
                     purok: formData.get("purok") as string || null,
-                    municipality: (formData.get("municipality") as string || "Mapandan").toUpperCase(),
-                    province: (formData.get("province") as string || "Pangasinan").toUpperCase(),
+                    municipality: (formData.get("municipality") as string || "{{LGU_NAME}}").toUpperCase(),
+                    province: (formData.get("province") as string || "{{PROVINCE_NAME}}").toUpperCase(),
                     latitude: lat,
                     longitude: lng,
                     contactNumber: formData.get("contactNumber") as string || null,
@@ -4150,7 +4150,7 @@ export async function getTransactionReportData(params: {
             whereClause.status = params.status;
         }
 
-        const targetBarangay = selectedBarangay || (params.barangay && params.barangay !== "ALL" && params.barangay !== "Mapandan" ? params.barangay : null);
+        const targetBarangay = selectedBarangay || (params.barangay && params.barangay !== "ALL" && params.barangay !== "{{LGU_NAME}}" ? params.barangay : null);
         if (targetBarangay) {
             whereClause.OR = [
                 {

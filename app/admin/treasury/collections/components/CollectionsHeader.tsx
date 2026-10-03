@@ -125,16 +125,16 @@ export function CollectionsHeader() {
         try {
             // 1. Fetch municipal branding & settings
             let logoUrl = "";
-            let brand1 = "MAPANDAN";
-            let brand2 = "SMART MUNICIPALITY";
+            let brand1 = "E-";
+            let brand2 = "LGU";
             let activeThemeColor = themeColor || "#2563eb";
             try {
                 const res = await fetch("/api/settings");
                 if (res.ok) {
                     const data = await res.json();
                     logoUrl = data.logoUrl || "";
-                    brand1 = data.brand1 || "MAPANDAN";
-                    brand2 = data.brand2 || "SMART MUNICIPALITY";
+                    brand1 = data.brand1 || "E-";
+                    brand2 = data.brand2 || "LGU";
                     activeThemeColor = data.themeColor || activeThemeColor;
                 }
             } catch { /* fallback to defaults */ }
@@ -388,7 +388,7 @@ export function CollectionsHeader() {
             const worksheet = workbook.addWorksheet("Daily Ticket Collections");
 
             // Header Title Rows
-            worksheet.addRow(["MUNICIPALITY OF MAPANDAN — OFFICE OF THE MUNICIPAL TREASURER"]);
+            worksheet.addRow(["MUNICIPALITY OF E-LGU — OFFICE OF THE MUNICIPAL TREASURER"]);
             worksheet.addRow(["DAILY MARKET STALL TICKET COLLECTIONS LEDGER"]);
             worksheet.addRow([`Date Generated: ${format(new Date(), "MMMM d, yyyy hh:mm a")}`]);
             worksheet.addRow([]); // Blank spacer

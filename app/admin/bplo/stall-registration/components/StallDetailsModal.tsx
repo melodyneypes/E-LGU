@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
@@ -14,7 +16,7 @@ const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
     loading: () => (
         <div className="h-full w-full min-h-[360px] bg-slate-100 dark:bg-[#10141d] rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2 border border-slate-200 dark:border-[#2a3040]">
             <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-            <span className="text-xs font-bold uppercase tracking-wider">Loading Mapandan Map...</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Loading {sanitizeLguText("{{LGU_NAME}}")} Map...</span>
         </div>
     ),
 });
@@ -232,7 +234,7 @@ export function StallDetailsModal() {
                                             Market Location Pin
                                         </h4>
                                         <p className="text-[10px] text-slate-400 font-medium italic">
-                                            {latNum && lngNum ? "Pinned location inside Mapandan." : "No pin location set yet."}
+                                            {latNum && lngNum ? "Pinned location inside {{LGU_NAME}}." : "No pin location set yet."}
                                         </p>
                                     </div>
                                 </div>

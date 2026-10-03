@@ -117,7 +117,7 @@ export function MayorHotlinesDetailModal({ item, onClose, themeColor = "#2563eb"
                                 <MapPin size={14} className="text-blue-500" /> Station Address / Location
                             </div>
                             <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                {item.address || "Mapandan, Pangasinan"}
+                                {item.address || "Municipality of E-LGU"}
                             </p>
                         </div>
 

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useHousehold } from "../providers/HouseholdProvider";
 import dynamic from "next/dynamic";
 import { Loader2, Users, AlertTriangle, Phone, ShieldCheck } from "lucide-react";
+import { lguMapCenter } from "@/lib/utils/lgu";
+import lguConfig from "@/config/lgu.config.json";
 
 // Import react-leaflet dynamically to prevent SSR issues with the global window object
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false, loading: () => <MapLoading /> });
@@ -30,10 +32,10 @@ export function HouseholdMapView() {
     const [riskIcon, setRiskIcon] = useState<any>(null);
 
     useEffect(() => {
-        // Fetch Mapandan Border GeoJSON
-        fetch('/mapandan-border.json')
+        // Fetch Municipal Border GeoJSON
+        fetch(lguConfig.map.boundaryFile)
             .then(res => res.json())
-            .catch(err => console.error("Failed to load Mapandan border:", err));
+            .catch(err => console.error("Failed to load municipal border:", err));
 
         // We only require leaflet dynamically on the client side
         import("leaflet").then(L => {
@@ -85,9 +87,9 @@ export function HouseholdMapView() {
         return matchesSearch && matchesBarangay && matchesRisk && hasCoords;
     });
  
-    // Default center to Mapandan, Pangasinan if no data
-    const centerLat = filteredHouseholds.length > 0 && filteredHouseholds[0].latitude !== null ? filteredHouseholds[0].latitude : 16.0264;
-    const centerLng = filteredHouseholds.length > 0 && filteredHouseholds[0].longitude !== null ? filteredHouseholds[0].longitude : 120.4537;
+    // Default center to municipal coordinates if no data
+    const centerLat = filteredHouseholds.length > 0 && filteredHouseholds[0].latitude !== null ? filteredHouseholds[0].latitude : lguMapCenter[0];
+    const centerLng = filteredHouseholds.length > 0 && filteredHouseholds[0].longitude !== null ? filteredHouseholds[0].longitude : lguMapCenter[1];
 
     return (
         <div className="w-full bg-white dark:bg-[#151b2b] p-4 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm relative z-0">

@@ -1,4 +1,6 @@
 "use client";
+import { sanitizeLguText } from "@/lib/utils/lgu";
+
 
 import React, { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -17,7 +19,7 @@ const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
     ssr: false,
     loading: () => (
         <div className="h-[280px] w-full rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs text-slate-400 font-bold animate-pulse">
-            Loading Mapandan Map...
+            Loading {sanitizeLguText("{{LGU_NAME}}")} Map...
         </div>
     ),
 });
@@ -575,7 +577,7 @@ export function AddStallModal() {
                                             Market Location Pin
                                         </h4>
                                         <p className="text-[10px] text-slate-400 font-medium italic">
-                                            Click on the map or drag pin inside Mapandan.
+                                            Click on the map or drag pin inside {sanitizeLguText("{{LGU_NAME}}")}.
                                         </p>
                                     </div>
                                 </div>

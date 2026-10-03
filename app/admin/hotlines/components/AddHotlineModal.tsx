@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Phone, X, Save } from "lucide-react";
+import lguConfig from "@/config/lgu.config.json";
 
 export function AddHotlineModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, themeColor } = useHotlines();
@@ -82,7 +83,7 @@ export function AddHotlineModal() {
                                         defaultValue={editingData?.name || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="e.g. Mapandan Municipal Police Station"
+                                        placeholder="e.g. Municipal Police Station"
                                     />
                                 </div>
                                 <div>
@@ -110,7 +111,7 @@ export function AddHotlineModal() {
                                         name="mobileNumber"
                                         defaultValue={editingData?.mobileNumber || ""}
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="0912 345 6789"
+                                        placeholder={lguConfig.contact.hotlines.police}
                                     />
                                 </div>
                                 <div>
@@ -122,7 +123,7 @@ export function AddHotlineModal() {
                                         name="telephone"
                                         defaultValue={editingData?.telephone || ""}
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="(075) 123 4567"
+                                        placeholder={lguConfig.contact.hotlines.fire}
                                     />
                                 </div>
                             </div>
@@ -137,7 +138,7 @@ export function AddHotlineModal() {
                                         name="address"
                                         defaultValue={editingData?.address || ""}
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="Poblacion, Mapandan"
+                                        placeholder={lguConfig.contact.address}
                                     />
                                 </div>
                                 <div>

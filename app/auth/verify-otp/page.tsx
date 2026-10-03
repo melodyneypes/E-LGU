@@ -9,7 +9,7 @@ import { SystemSetting, HeroSlide } from "@prisma/client";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-    title: "Verify Identity | EMapandan",
+    title: "Verify Identity | E-LGU",
     description: "Verify your email address before setting up your account password.",
 };
 
@@ -33,7 +33,7 @@ export default async function VerifyOTPPage() {
 
     const email = session.user.email || "";
 
-    // Fetch EMapandan branding slides and settings
+    // Fetch E-LGU branding slides and settings
     const slides: HeroSlide[] = await prisma.heroSlide.findMany({
         where: { isActive: true },
         orderBy: { order: "asc" },

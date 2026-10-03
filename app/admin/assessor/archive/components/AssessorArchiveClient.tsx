@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays, sanitizeLguText } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -59,25 +60,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 
-const MAPANDAN_BARANGAYS = [
-    "Amanoaoac",
-    "Apaya",
-    "Aserda",
-    "Baloling",
-    "Coral",
-    "Golden",
-    "Guaoan",
-    "Jimenez",
-    "Lambayan",
-    "Luyan",
-    "Nilombot",
-    "Pias",
-    "Poblacion",
-    "Primicias",
-    "Santa Maria",
-    "Torres",
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 const PROPERTY_KINDS = [
     { value: "LAND", label: "Land Parcel" },
     { value: "BUILDING", label: "Building / Improvement" },
@@ -188,7 +171,7 @@ export default function AssessorArchiveClient({
         beneficiaryName: "",
         contactNumber: "",
         email: "",
-        barangay: "Poblacion",
+        barangay: "{{BARANGAY_NAME}}",
         street: "",
         propertyKind: "LAND",
         classification: "RESIDENTIAL",
@@ -353,7 +336,7 @@ export default function AssessorArchiveClient({
             beneficiaryName: "",
             contactNumber: "",
             email: "",
-            barangay: "Poblacion",
+            barangay: "{{BARANGAY_NAME}}",
             street: "",
             propertyKind: "LAND",
             classification: "RESIDENTIAL",
@@ -414,7 +397,7 @@ export default function AssessorArchiveClient({
             beneficiaryName: record.beneficiaryName || "",
             contactNumber: addData.contactNumber || "",
             email: addData.email || "",
-            barangay: record.barangay || "Poblacion",
+            barangay: record.barangay || "{{BARANGAY_NAME}}",
             street: record.street || "",
             propertyKind: record.propertyKind || "LAND",
             classification: record.classification || "RESIDENTIAL",
@@ -929,7 +912,7 @@ export default function AssessorArchiveClient({
 
                                                     <div className="space-y-1.5 sm:col-span-1">
                                                         <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                            Barangay in Mapandan <span className="text-rose-500">*</span>
+                                                            Barangay in {sanitizeLguText("{{LGU_NAME}}")} <span className="text-rose-500">*</span>
                                                         </Label>
                                                         <Select
                                                             value={formData.barangay}
@@ -939,7 +922,7 @@ export default function AssessorArchiveClient({
                                                                 <SelectValue placeholder="Select Barangay" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {MAPANDAN_BARANGAYS.map(brgy => (
+                                                                {LGU_BARANGAYS.map(brgy => (
                                                                     <SelectItem key={brgy} value={brgy}>
                                                                         Brgy. {brgy}
                                                                     </SelectItem>
@@ -1635,7 +1618,7 @@ export default function AssessorArchiveClient({
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Barangays</SelectItem>
-                            {MAPANDAN_BARANGAYS.map(brgy => (
+                            {LGU_BARANGAYS.map(brgy => (
                                 <SelectItem key={brgy} value={brgy}>
                                     Brgy. {brgy}
                                 </SelectItem>

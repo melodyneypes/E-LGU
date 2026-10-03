@@ -165,6 +165,7 @@ function LeaderCard({ leader, isMobile, activeTab }: { leader: Official, isMobil
                                 alt={leader.name}
                                 fill
                                 onLoad={() => setIsImageLoading(false)}
+                                onError={() => setIsImageLoading(false)}
                                 className={cn(
                                     "object-cover transition-all duration-700",
                                     isImageLoading ? 'opacity-0 blur-sm scale-110' : 'opacity-100 blur-0 scale-100',
@@ -227,6 +228,7 @@ function MemberCard({ member }: { member: Official }) {
                             sizes="(max-width: 768px) 100px, 150px"
                             loading="lazy"
                             onLoad={() => setIsImageLoading(false)}
+                            onError={() => setIsImageLoading(false)}
                             className={cn(
                                 "object-cover transition-all duration-700",
                                 isImageLoading ? 'opacity-0 blur-sm scale-110' : 'opacity-100 blur-0 scale-100',

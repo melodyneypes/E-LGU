@@ -468,7 +468,7 @@ export function DailyRequestsReportClient({
 
             // --- 1. Fetch branding ---
             let logoUrl = "";
-            let brand1 = "MAPANDAN";
+            let brand1 = "{{LGU_NAME}}";
             let brand2 = "PORTAL";
             let themeColor = "#2563eb";
             try {
@@ -476,7 +476,7 @@ export function DailyRequestsReportClient({
                 if (res.ok) {
                     const data = await res.json();
                     logoUrl = data.logoUrl || "";
-                    brand1 = data.brand1 || "MAPANDAN";
+                    brand1 = data.brand1 || "{{LGU_NAME}}";
                     brand2 = data.brand2 || "PORTAL";
                     themeColor = data.themeColor || "#2563eb";
                 }

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { MedicalConsultationForm } from "./RHUBookingForm";
+import lguConfig from "@/config/lgu.config.json";
 
 export const dynamic = "force-dynamic";
 
@@ -106,11 +107,11 @@ export default async function RHUBookingPage({ params }: PageProps) {
                     id: "main-rhu",
                     name: "Main Rural Health Unit (RHU)",
                     code: "RHU-MAIN",
-                    location: "Poblacion, Mapandan, Pangasinan",
-                    latitude: 16.0250,
-                    longitude: 120.4450,
-                    barangay: "Poblacion",
-                    contactNumber: "(075) 555-0101",
+                    location: "{{BARANGAY_NAME}}, Municipality of E-LGU",
+                    latitude: lguConfig.map.latitude ?? 0,
+                    longitude: lguConfig.map.longitude ?? 0,
+                    barangay: "{{BARANGAY_NAME}}",
+                    contactNumber: lguConfig.contact.hotlines.healthOfficer,
                     operatingHours: "Mon-Fri 8:00 AM - 5:00 PM"
                 }
             ];

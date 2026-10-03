@@ -12,7 +12,7 @@ interface PortalSelectFormProps {
     themeColor?: string;
 }
 
-export function PortalSelectForm({ themeColor = "#2563eb" }: PortalSelectFormProps) {
+export function PortalSelectForm({ themeColor = "#0038a8" }: PortalSelectFormProps) {
     const router = useRouter();
     const { data: session, status } = useSession();
     const [loadingPortal, setLoadingPortal] = React.useState<"citizen" | "admin" | "logout" | null>(null);

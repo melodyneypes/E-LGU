@@ -3,6 +3,7 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import { Hammer, Shield, HardHat, Clock, ArrowRight } from "lucide-react";
+import lguConfig from "@/config/lgu.config.json";
 
 interface MaintenanceClientProps {
     brandWord1: string;
@@ -13,26 +14,26 @@ interface MaintenanceClientProps {
 }
 
 export function MaintenanceClient({ 
-    brandWord1, 
-    brandWord2, 
-    themeColor, 
-    logoUrl,
     maintenanceUpdatedAt
 }: MaintenanceClientProps) {
+    const brandWord1 = lguConfig.identity.brandWord1;
+    const brandWord2 = lguConfig.identity.brandWord2;
+    const logoUrl = lguConfig.assets.logo;
+    const primaryColor = lguConfig.theme.primary;
     return (
         <main 
             className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-white overflow-hidden relative font-sans"
-            style={{ "--primary": themeColor } as React.CSSProperties}
+            style={{ "--primary": primaryColor } as React.CSSProperties}
         >
             {/* Animated Background Gradients */}
             <div className="absolute top-0 left-0 w-full h-full z-0 overflow-hidden">
                 <div 
                     className="absolute top-1/4 left-1/4 w-[600px] h-[600px] blur-[150px] rounded-full animate-pulse opacity-20" 
-                    style={{ backgroundColor: themeColor }}
+                    style={{ backgroundColor: primaryColor }}
                 />
                 <div 
                     className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] blur-[150px] rounded-full animate-pulse opacity-10 delay-1000" 
-                    style={{ backgroundColor: themeColor }}
+                    style={{ backgroundColor: primaryColor }}
                 />
             </div>
 
@@ -45,11 +46,11 @@ export function MaintenanceClient({
                 >
                     <div 
                         className="w-28 h-28 rounded-[2.5rem] flex items-center justify-center shadow-3xl relative overflow-hidden group"
-                        style={{ backgroundColor: themeColor, boxShadow: `0 35px 60px -15px ${themeColor}66` }}
+                        style={{ backgroundColor: primaryColor, boxShadow: `0 35px 60px -15px ${primaryColor}66` }}
                     >
                         {logoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="Logo" className="w-full h-full object-cover p-3 transition-transform group-hover:scale-110" />
+                            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-2 transition-transform group-hover:scale-110" />
                         ) : (
                             <Shield className="w-14 h-14 text-white" />
                         )}
@@ -62,16 +63,16 @@ export function MaintenanceClient({
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                             className="inline-flex items-center gap-2 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-white border"
-                            style={{ backgroundColor: `${themeColor}22`, borderColor: `${themeColor}44` }}
+                            style={{ backgroundColor: `${primaryColor}22`, borderColor: `${primaryColor}44` }}
                         >
                             <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: themeColor }}></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: themeColor }}></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: primaryColor }}></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: primaryColor }}></span>
                             </span>
                             Maintenance In Progress
                         </motion.div>
                         <h1 className="text-6xl md:text-8xl lg:text-9xl font-black uppercase italic tracking-tighter leading-[0.85] text-white">
-                            {brandWord1}<span style={{ color: themeColor }}>{brandWord2}</span>
+                            {brandWord1}<span style={{ color: primaryColor }}>{brandWord2}</span>
                         </h1>
                     </div>
                 </motion.div>
@@ -95,7 +96,7 @@ export function MaintenanceClient({
                             transition={{ delay: 0.5 + (i * 0.1) }}
                             className="p-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-2xl hover:bg-white/10 transition-colors"
                         >
-                            <item.icon className="w-10 h-10 mb-6 mx-auto" style={{ color: themeColor }} />
+                            <item.icon className="w-10 h-10 mb-6 mx-auto" style={{ color: primaryColor }} />
                             <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-2">{item.label}</h3>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.sub}</p>
                         </motion.div>
@@ -116,10 +117,10 @@ export function MaintenanceClient({
                         }}
                         className="w-full sm:w-auto px-10 py-4 rounded-full font-black text-xs uppercase tracking-widest transition-all duration-300 border flex items-center justify-center gap-2 hover:scale-105 active:scale-[0.98]"
                         style={{
-                            backgroundColor: themeColor,
-                            borderColor: themeColor,
+                            backgroundColor: primaryColor,
+                            borderColor: primaryColor,
                             color: "#ffffff",
-                            boxShadow: `0 10px 25px -5px ${themeColor}66`
+                            boxShadow: `0 10px 25px -5px ${primaryColor}66`
                         }}
                     >
                         Go to Landing Page

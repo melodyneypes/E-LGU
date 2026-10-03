@@ -8,7 +8,7 @@ import { getPosoPaymentsLedger } from "@/app/admin/poso/payment-ledger/actions";
 import PosoPaymentsClient from "./PosoPaymentsClient";
 
 export const metadata: Metadata = {
-    title: "POSO Payment Ledger | Mapandan Portal",
+    title: "POSO Payment Ledger | LGU Portal",
     description: "Official payment ledger for POSO traffic violation fines and citation settlements.",
 };
 

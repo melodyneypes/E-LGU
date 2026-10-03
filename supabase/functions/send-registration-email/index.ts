@@ -16,12 +16,16 @@ serve(async (req) => {
     const { type, recipientEmail, recipientName, remarks } = payload;
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "noreply@mapandan.gov.ph";
-    const MUNICIPALITY_NAME = Deno.env.get("MUNICIPALITY_NAME") || "Mapandan";
+    const FROM_EMAIL = Deno.env.get("FROM_EMAIL");
+    const MUNICIPALITY_NAME = Deno.env.get("MUNICIPALITY_NAME");
 
     if (!RESEND_API_KEY) {
         console.error("RESEND_API_KEY not set");
         return new Response(JSON.stringify({ error: "Email service not configured" }), { status: 500 });
+    }
+    if (!FROM_EMAIL || !MUNICIPALITY_NAME) {
+        console.error("FROM_EMAIL and MUNICIPALITY_NAME must be configured");
+        return new Response(JSON.stringify({ error: "Email sender is not configured" }), { status: 500 });
     }
 
     const isApproved = type === "APPROVED";

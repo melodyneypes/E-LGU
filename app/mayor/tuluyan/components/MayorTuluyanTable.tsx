@@ -165,7 +165,7 @@ export function MayorTuluyanTable({
                                                         {item.name}
                                                     </h3>
                                                     <p className="text-xs text-slate-400 truncate max-w-xs">
-                                                        {item.address || "Mapandan, Pangasinan"}
+                                                        {item.address || "Municipality of E-LGU"}
                                                     </p>
                                                 </div>
                                             </div>
@@ -182,7 +182,7 @@ export function MayorTuluyanTable({
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
                                                 <MapPin size={14} className="text-emerald-500 shrink-0" />
-                                                <span>{item.barangay || selectedBarangay || "Mapandan"}</span>
+                                                <span>{item.barangay || selectedBarangay || "E-LGU"}</span>
                                             </div>
                                         </td>
 

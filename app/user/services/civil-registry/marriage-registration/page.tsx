@@ -214,7 +214,7 @@ export default function MarriageRegistrationPage() {
 
         // Marriage Details
         dateOfMarriage: "",
-        placeOfMarriage: "MAPANDAN, PANGASINAN",
+        placeOfMarriage: "MUNICIPALITY OF E-LGU",
 
         email: "",
         contactNumber: "",
@@ -393,7 +393,7 @@ export default function MarriageRegistrationPage() {
                             r.sitio && `Sitio ${r.sitio}`,
                             r.barangay && `Brgy. ${r.barangay}`,
                             r.municipality || "",
-                            r.province || "Pangasinan"
+                            r.province || "{{PROVINCE_NAME}}"
                         ].filter(Boolean);
                         const constructedAddr = parts.join(", ").toUpperCase();
 
@@ -730,7 +730,7 @@ export default function MarriageRegistrationPage() {
                 r.sitio && `Sitio ${r.sitio}`,
                 r.barangay && `Brgy. ${r.barangay}`,
                 r.municipality || "",
-                r.province || "Pangasinan"
+                r.province || "{{PROVINCE_NAME}}"
             ].filter(Boolean);
             const constructedAddr = parts.join(", ").toUpperCase();
 
@@ -1122,14 +1122,14 @@ export default function MarriageRegistrationPage() {
                                                         onCheckedChange={(checked) => setForm({ ...form, app2IsResident: !!checked })}
                                                     />
                                                     <label htmlFor="app2Resident" className="text-xs font-bold italic text-slate-500 cursor-pointer">
-                                                        {app2Label} is a resident of Mapandan
+                                                        {app2Label} is a resident of our municipality
                                                     </label>
                                                 </div>
                                             </div>
 
                                             {form.app2IsResident && (
                                                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Search Mapandan Records</Label>
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Search Municipal Records</Label>
                                                     <ResidentSearch
                                                         onSelect={handleApp2Select}
                                                         placeholder="Search by first or last name..."

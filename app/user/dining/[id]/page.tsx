@@ -45,7 +45,7 @@ export default async function DiningDetailPage({ params }: { params: Promise<{ i
     // Map implementation without API key
     const mapQuery = item.latitude && item.longitude
         ? `${item.latitude},${item.longitude}`
-        : `${item.name}, ${item.address}, Mapandan, Pangasinan`;
+        : `${item.name}, ${item.address}, Municipality of E-LGU`;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const mapEmbedUrl = `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY_PLACEHOLDER || ''}&q=${encodeURIComponent(mapQuery)}`;
     // Fallback public embed if no key:

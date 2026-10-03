@@ -173,7 +173,7 @@ export async function createTourismSpot(formData: FormData) {
                 entityType: "TourismSpot",
                 entityId: spot.id,
                 entityName: spot.name,
-                description: `Created tourism spot: "${spot.name}" in ${spot.barangay || "Mapandan"}`,
+                description: `Created tourism spot: "${spot.name}" in ${spot.barangay || "{{LGU_NAME}}"}`,
                 metadata: {
                     name: spot.name,
                     category: spot.category,
@@ -411,7 +411,7 @@ export async function deleteTourismSpot(id: string) {
                 entityType: "TourismSpot",
                 entityId: id,
                 entityName: existing.name,
-                description: `Deleted tourism spot: "${existing.name}" (${existing.barangay || "Mapandan"})`,
+                description: `Deleted tourism spot: "${existing.name}" (${existing.barangay || "{{LGU_NAME}}"})`,
                 metadata: {
                     name: existing.name,
                     category: existing.category,

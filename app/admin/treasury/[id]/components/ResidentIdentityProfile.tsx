@@ -1,4 +1,5 @@
 "use client";
+import { configuredBarangays } from "@/lib/utils/lgu";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { ChevronDown, ChevronUp, UserCheck, ShieldAlert, KeyRound, Loader2, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
@@ -9,12 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const MAPANDAN_BARANGAYS = [
-    "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", 
-    "Guanzon", "Jimenez", "Nilombot", "Poblacion", "San Pedro", "Santa Barbara",
-    "Santa Maria", "Torres"
-];
-
+const LGU_BARANGAYS = configuredBarangays;
 interface ResidentIdentityProfileProps {
     resident: any;
     safeFormatDate: (dateStr: any) => string;
@@ -118,8 +114,8 @@ export default function ResidentIdentityProfile({
             houseNumber: resident?.houseNumber || "",
             street: resident?.street || "",
             barangay: resident?.barangay || "",
-            municipality: resident?.municipality || "Mapandan",
-            province: resident?.province || "Pangasinan",
+            municipality: resident?.municipality || "E-LGU",
+            province: resident?.province || "{{PROVINCE_NAME}}",
         });
     }, [resident]);
 
@@ -162,8 +158,8 @@ export default function ResidentIdentityProfile({
             resident.sitio ? `Sitio ${resident.sitio}` : null,
             resident.purok ? `Purok ${resident.purok}` : null,
             resident.barangay ? `Barangay ${resident.barangay}` : null,
-            resident.municipality || "Mapandan",
-            resident.province || "Pangasinan"
+            resident.municipality || "E-LGU",
+            resident.province || "{{PROVINCE_NAME}}"
         ].filter(Boolean);
         return parts.join(", ") || "—";
     })();
@@ -554,7 +550,7 @@ export default function ResidentIdentityProfile({
                                     className="w-full h-12 rounded-2xl bg-white dark:bg-[#111827] border border-emerald-500/40 px-4 font-bold uppercase text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                                 >
                                     <option value="">Select Barangay...</option>
-                                    {MAPANDAN_BARANGAYS.map((brgy) => (
+                                    {LGU_BARANGAYS.map((brgy) => (
                                         <option key={brgy} value={brgy}>
                                             {brgy}
                                         </option>

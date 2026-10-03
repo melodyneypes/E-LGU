@@ -73,4 +73,4 @@ Verification will include the focused tests, linting of changed files, and TypeS
 - Clicking any displayed resident service opens its corresponding `/user/services/...` page.
 - A temporary authentication handoff returns to the requested service, not `/`.
 - Existing direct login destinations for USER and administrative roles remain unchanged when no callback is present.
-- External callback URLs cannot redirect the browser away from EMapandan.
+- External callback URLs cannot redirect the browser away from E-LGU.

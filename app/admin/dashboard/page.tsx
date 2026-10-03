@@ -778,7 +778,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                             Dashboard
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
-                            <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Municipality of Mapandan"}</span>
+                            <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Municipality of E-LGU"}</span>
                         </p>
                     </div>
                 }

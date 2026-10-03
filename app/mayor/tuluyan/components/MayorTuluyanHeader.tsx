@@ -69,7 +69,7 @@ export function MayorTuluyanHeader({
                                 Tuluyan & Lodging Hub
                             </h1>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Mapandan Executive Oversight & Accommodation Directory
+                                E-LGU Executive Oversight & Accommodation Directory
                             </p>
                         </div>
                     </div>

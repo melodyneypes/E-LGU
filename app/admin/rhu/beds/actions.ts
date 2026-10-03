@@ -53,7 +53,7 @@ export async function ensureBedTablesExist() {
                 "attendingPhysician" TEXT,
                 "facilityType" TEXT NOT NULL DEFAULT 'RHU',
                 "healthCenterId" TEXT,
-                "healthCenterName" TEXT DEFAULT 'RHU Mapandan',
+                "healthCenterName" TEXT DEFAULT 'RHU {{LGU_NAME}}',
                 "notes" TEXT,
                 "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -218,7 +218,7 @@ export async function createRHUBed(data: {
             centerId = matchedCenter.id;
             centerName = matchedCenter.name;
         } else {
-            centerName = centerName || (facilityType === "RHU" ? "RHU Mapandan" : "Health Center");
+            centerName = centerName || (facilityType === "RHU" ? "RHU {{LGU_NAME}}" : "Health Center");
         }
 
         // Check if bedNumber already exists for this facility
@@ -432,7 +432,7 @@ export async function initializeFacilityBeds(data: {
             centerId = matchedCenter.id;
             centerName = matchedCenter.name;
         } else {
-            centerName = centerName || (targetFacilityType === "RHU" ? "RHU Mapandan" : "Health Center");
+            centerName = centerName || (targetFacilityType === "RHU" ? "RHU {{LGU_NAME}}" : "Health Center");
         }
 
         const count = Math.min(100, Math.max(1, data.bedCount || 20));

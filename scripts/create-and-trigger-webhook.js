@@ -4,12 +4,13 @@ require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const crypto = require('crypto');
+const lguConfig = require('../config/lgu.config.json');
 
 async function main() {
   console.log('Creating test transaction...');
 
   // Find or create a test user
-  let user = await prisma.user.findFirst({ where: { email: 'citizen@gmail.com' } });
+  let user = await prisma.user.findFirst({ where: { email: lguConfig.seedAccounts.residentEmail } });
   if (!user) {
     user = await prisma.user.create({ data: { name: 'Webhook Tester', email: `webhook-tester+${Date.now()}@example.com`, isEmailVerified: true } });
     console.log('Created test user', user.id);

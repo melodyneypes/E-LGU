@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useTransition, useRef } from "
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
 import { useSession } from "next-auth/react";
+import lguConfig from "@/config/lgu.config.json";
 import {
     Activity,
     Boxes,
@@ -127,13 +128,12 @@ export default function EquipmentClient({
     isGlobalAdmin = false,
     canDispatchSO = false,
     canFileRO,
-    siteLogo = "",
     currentUserName = ""
 }: EquipmentClientProps) {
     const { data: session } = useSession();
     const activeStaffName = currentUserName || session?.user?.name || "";
     const userCanFileRO = canFileRO !== undefined ? canFileRO : (Boolean(matchedCenter) && !isGlobalAdmin);
-    const resolvedLogo = siteLogo || "/images/mapandan-logo.png";
+    const resolvedLogo = lguConfig.assets.logo;
 
     let themeColor = "#0284c7";
     try {
@@ -168,7 +168,7 @@ export default function EquipmentClient({
     // Dynamic Registered Facilities from DB
     const registeredCenters = (initialCenters && initialCenters.length > 0)
         ? initialCenters
-        : [{ id: "main-rhu", name: "Main Rural Health Unit (RHU)", barangay: "Poblacion" }];
+        : [{ id: "main-rhu", name: "Main Rural Health Unit (RHU)", barangay: "{{BARANGAY_NAME}}" }];
 
     const facilityNames: string[] = registeredCenters.map((c: any) => c.name);
     const nonMainFacilities: string[] = registeredCenters
@@ -4303,7 +4303,7 @@ export default function EquipmentClient({
                                 <Input
                                     value={poContact}
                                     onChange={(e) => setPoContact(e.target.value)}
-                                    placeholder="e.g. 0917-123-4567"
+                                    placeholder="e.g. 09XX-XXX-XXXX"
                                     className="h-11 rounded-xl text-xs font-bold"
                                 />
                             </div>
@@ -5813,7 +5813,7 @@ export default function EquipmentClient({
                 <DialogContent className="sm:max-w-[420px] rounded-3xl bg-white dark:bg-[#161820] p-6 text-center">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-black uppercase">Official Property Tag</DialogTitle>
-                        <DialogDescription className="text-xs text-slate-400">Municipality of Mapandan • Rural Health Unit</DialogDescription>
+                        <DialogDescription className="text-xs text-slate-400">Local Government Unit • Rural Health Unit</DialogDescription>
                     </DialogHeader>
 
                     <div className="p-6 rounded-2xl bg-slate-50 dark:bg-black/40 border space-y-3 my-2">

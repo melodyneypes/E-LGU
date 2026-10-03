@@ -315,8 +315,8 @@ model Resident {
   sitio                 String?
   purok                 String?
   barangay              String
-  municipality          String            @default("Mapandan")
-  province              String            @default("Pangasinan")
+  municipality          String
+  province              String
   contactNumber         String?
   email                 String?
   isHead                Boolean           @default(false)
@@ -1748,7 +1748,7 @@ model RHUBed {
   attendingPhysician String?
   facilityType       String    @default("RHU")
   healthCenterId     String?
-  healthCenterName   String?   @default("RHU Mapandan")
+  healthCenterName   String?
   notes              String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @default(now())

@@ -9,6 +9,7 @@ import {
     Building2, MapPin, Phone, Clock, Mail, Globe
 } from "lucide-react";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 
 export default function PosoSettingsClient({
     initialSettings,
@@ -29,11 +30,11 @@ export default function PosoSettingsClient({
     const [interestVal, setInterestVal] = useState<string>(String(initialSettings.monthlyInterestRate));
 
     // POSO Public Portal Settings Form States
-    const [locationVal, setLocationVal] = useState<string>(initialPortalInfo?.posoLocation || "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines");
-    const [hotlineVal, setHotlineVal] = useState<string>(initialPortalInfo?.posoHotline || "(075) 529-XXXX / +63 917 123 4567");
-    const [hoursVal, setHoursVal] = useState<string>(initialPortalInfo?.posoHours || "Monday - Friday: 8:00 AM - 5:00 PM");
-    const [emailVal, setEmailVal] = useState<string>(initialPortalInfo?.posoEmail || "poso@mapandan.gov.ph");
-    const [facebookVal, setFacebookVal] = useState<string>(initialPortalInfo?.posoFacebook || "https://facebook.com/MapandanPOSO");
+    const [locationVal, setLocationVal] = useState<string>(initialPortalInfo?.posoLocation || lguConfig.poso.address);
+    const [hotlineVal, setHotlineVal] = useState<string>(initialPortalInfo?.posoHotline || lguConfig.poso.hotline);
+    const [hoursVal, setHoursVal] = useState<string>(initialPortalInfo?.posoHours || lguConfig.poso.officeHours);
+    const [emailVal, setEmailVal] = useState<string>(initialPortalInfo?.posoEmail || lguConfig.poso.email);
+    const [facebookVal, setFacebookVal] = useState<string>(initialPortalInfo?.posoFacebook || lguConfig.social.posoFacebook);
 
     const [isPending, startTransition] = useTransition();
     const [isPendingPortal, startTransitionPortal] = useTransition();
@@ -153,7 +154,7 @@ export default function PosoSettingsClient({
                             Public POSO Portal Office Information Settings
                         </h2>
                         <p className="text-xs text-slate-500 font-medium italic">
-                            Configure contact info displayed on public ticket lookup portal (/poso/mapandan)
+                            Configure contact info displayed on public ticket lookup portal (/poso/portal)
                         </p>
                     </div>
                 </div>
@@ -168,7 +169,7 @@ export default function PosoSettingsClient({
                             type="text"
                             value={locationVal}
                             onChange={(e) => setLocationVal(e.target.value)}
-                            placeholder="e.g. Municipal Hall Complex, Poblacion, Mapandan, Pangasinan"
+                            placeholder={lguConfig.poso.address}
                             className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
                         />
                     </div>
@@ -182,7 +183,7 @@ export default function PosoSettingsClient({
                             type="text"
                             value={hotlineVal}
                             onChange={(e) => setHotlineVal(e.target.value)}
-                            placeholder="e.g. (075) 529-XXXX / +63 917 123 4567"
+                            placeholder={lguConfig.poso.hotline}
                             className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-mono font-bold"
                         />
                     </div>
@@ -196,7 +197,7 @@ export default function PosoSettingsClient({
                             type="text"
                             value={hoursVal}
                             onChange={(e) => setHoursVal(e.target.value)}
-                            placeholder="e.g. Monday - Friday: 8:00 AM - 5:00 PM"
+                            placeholder={lguConfig.poso.officeHours}
                             className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
                         />
                     </div>
@@ -210,7 +211,7 @@ export default function PosoSettingsClient({
                             type="email"
                             value={emailVal}
                             onChange={(e) => setEmailVal(e.target.value)}
-                            placeholder="e.g. poso@mapandan.gov.ph"
+                            placeholder={lguConfig.poso.email}
                             className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
                         />
                     </div>
@@ -224,7 +225,7 @@ export default function PosoSettingsClient({
                             type="url"
                             value={facebookVal}
                             onChange={(e) => setFacebookVal(e.target.value)}
-                            placeholder="e.g. https://facebook.com/MapandanPOSO"
+                            placeholder={lguConfig.social.posoFacebook}
                             className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
                         />
                     </div>
@@ -251,7 +252,7 @@ export default function PosoSettingsClient({
                             Overdue Citation Penalty & Surcharge Policy
                         </h2>
                         <p className="text-xs text-slate-500 font-medium italic">
-                            Mapandan Local Revenue Code & Republic Act 7160 Municipal Ordinance Settings
+                            Municipal Local Revenue Code & Republic Act 7160 Municipal Ordinance Settings
                         </p>
                     </div>
                 </div>

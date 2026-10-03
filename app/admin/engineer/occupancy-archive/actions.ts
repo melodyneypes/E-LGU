@@ -234,7 +234,7 @@ export async function getArchivedOccupancyPermits(params?: {
             }
 
             // Location & Metadata
-            const location = op?.location || addData.locationOfProject || resSnap.address || "Mapandan, Pangasinan";
+            const location = op?.location || addData.locationOfProject || resSnap.address || "Municipality of E-LGU";
             const permitNumber = op?.permitNumber || addData.permitNumber || `OP-PENDING-${tx.id.slice(-6).toUpperCase()}`;
             const buildingPermitNumber = addData.buildingPermitNo || addData.buildingPermitNumber || "N/A";
             const dateIssued = op?.dateIssued || addData.dateIssued || tx.createdAt;
@@ -329,10 +329,10 @@ export async function getArchivedOccupancyPermits(params?: {
                 remarks: addData.remarks || "",
                 contactNumber: resSnap.contactNumber || addData.contactNumber || "",
                 email: resSnap.email || addData.email || "",
-                barangay: resSnap.barangay || addData.barangay || "Poblacion",
+                barangay: resSnap.barangay || addData.barangay || "{{BARANGAY_NAME}}",
                 street: resSnap.street || addData.street || "",
-                province: resSnap.province || addData.province || "Pangasinan",
-                municipality: resSnap.municipality || addData.municipality || "Mapandan",
+                province: resSnap.province || addData.province || "{{PROVINCE_NAME}}",
+                municipality: resSnap.municipality || addData.municipality || "E-LGU",
                 createdAt: tx.createdAt,
             };
         });
@@ -393,13 +393,13 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
         const occupancyGroup = (formData.get("occupancyGroup") as string || "GROUP A").trim();
         const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
 
-        const barangay = (formData.get("barangay") as string || "Amanoaoac").trim();
+        const barangay = (formData.get("barangay") as string || "{{BARANGAY_NAME}}").trim();
         const street = (formData.get("street") as string || "").trim();
-        const province = (formData.get("province") as string || "").trim() || "Pangasinan";
-        const municipality = (formData.get("municipality") as string || "").trim() || "Mapandan";
+        const province = (formData.get("province") as string || "").trim() || "{{PROVINCE_NAME}}";
+        const municipality = (formData.get("municipality") as string || "").trim() || "E-LGU";
         const zipCode = (formData.get("zipCode") as string || "2429").trim();
 
-        const fullLocation = [street, barangay ? `Brgy. ${barangay}` : "", municipality, province, zipCode].filter(Boolean).join(", ") || `${barangay}, Mapandan, Pangasinan`;
+        const fullLocation = [street, barangay ? `Brgy. ${barangay}` : "", municipality, province, zipCode].filter(Boolean).join(", ") || `${barangay}, Municipality of E-LGU`;
 
         // Signatories & Notes
         const buildingOfficial = (formData.get("buildingOfficial") as string || "").trim();
@@ -792,8 +792,8 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
         // Location & Project
         const barangay = (formData.get("barangay") as string || "").trim();
         const street = (formData.get("street") as string || "").trim();
-        const province = (formData.get("province") as string || "").trim() || "PANGASINAN";
-        const municipality = (formData.get("municipality") as string || "").trim() || "MAPANDAN";
+        const province = (formData.get("province") as string || "").trim() || "{{PROVINCE_NAME}}";
+        const municipality = (formData.get("municipality") as string || "").trim() || "E-LGU";
         const zipCode = (formData.get("zipCode") as string || "2429").trim();
         const fullLocation = [street, barangay, municipality, province, zipCode].filter(Boolean).join(", ");
 

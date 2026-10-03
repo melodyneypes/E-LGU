@@ -190,7 +190,7 @@ export default function MedicineLedgerClient({
                     "Unit": m.unit || "pcs",
                     "Balance After": m.balanceAfter !== undefined && m.balanceAfter !== null ? m.balanceAfter : "—",
                     "Person / Remarks": m.personRemarks || "—",
-                    "Facility": m.facilityName || matchedCenter?.name || "RHU Mapandan",
+                    "Facility": m.facilityName || matchedCenter?.name || "Main Rural Health Unit (RHU)",
                     "Reference No.": m.referenceNo || "—"
                 };
             });
@@ -242,7 +242,7 @@ export default function MedicineLedgerClient({
             // Header Section
             doc.setFontSize(13);
             doc.setFont("helvetica", "bold");
-            doc.text("MUNICIPALITY OF MAPANDAN — RURAL HEALTH UNIT (RHU)", 14, 14);
+            doc.text("LOCAL GOVERNMENT UNIT — RURAL HEALTH UNIT (RHU)", 14, 14);
 
             doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
@@ -250,7 +250,7 @@ export default function MedicineLedgerClient({
 
             doc.setFontSize(8);
             doc.setTextColor(100);
-            const facilityLabel = matchedCenter?.name || "RHU Mapandan (Main & Sub-Centers)";
+            const facilityLabel = matchedCenter?.name || "Main RHU (Main & Sub-Centers)";
             const summaryText = `Generated: ${new Date().toLocaleString("en-PH")} | Facility: ${facilityLabel} | Total Records: ${filteredMovements.length}`;
             doc.text(summaryText, 14, 26);
 
@@ -279,7 +279,7 @@ export default function MedicineLedgerClient({
                     qtyStr,
                     balStr,
                     m.personRemarks || "—",
-                    m.facilityName || matchedCenter?.name || "RHU Mapandan"
+                    m.facilityName || matchedCenter?.name || "Main Rural Health Unit (RHU)"
                 ];
             });
 
@@ -320,7 +320,7 @@ export default function MedicineLedgerClient({
                     doc.setFontSize(8);
                     doc.setTextColor(120);
                     doc.text(
-                        `Page ${data.pageNumber} — Official RHU EMapandan Electronic Medicine Ledger Report`,
+                        `Page ${data.pageNumber} — Official RHU E-LGU Electronic Medicine Ledger Report`,
                         14,
                         pageHeight - 8
                     );
@@ -367,7 +367,7 @@ export default function MedicineLedgerClient({
             batchNumber: transBatch || item.batchNumber || null,
             balanceAfter: newBal,
             personRemarks: transRemarks || `${type} recorded manually`,
-            facilityName: matchedCenter?.name || "RHU Mapandan",
+            facilityName: matchedCenter?.name || "Main Rural Health Unit (RHU)",
             referenceNo: `MANUAL-${Date.now().toString().slice(-4)}`
         };
 
@@ -390,7 +390,7 @@ export default function MedicineLedgerClient({
             batchNumber: transBatch || item.batchNumber || null,
             balanceAfter: newBal,
             personRemarks: transRemarks || `${type} recorded manually`,
-            facilityName: matchedCenter?.name || "RHU Mapandan",
+            facilityName: matchedCenter?.name || "Main Rural Health Unit (RHU)",
             healthCenterId: matchedCenter?.id || null,
             referenceNo: `MANUAL-${Date.now().toString().slice(-4)}`
         });
@@ -1218,7 +1218,7 @@ export default function MedicineLedgerClient({
                                 <div className="pt-2 border-t border-slate-200/60 dark:border-[#162340]">
                                     <span className="text-slate-400 block text-[11px]">Facility</span>
                                     <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                        {selectedMovementDetail.facilityName || "RHU Mapandan"}
+                                        {selectedMovementDetail.facilityName || "Main Rural Health Unit (RHU)"}
                                     </span>
                                 </div>
 
