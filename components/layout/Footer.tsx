@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Shield, Facebook, Twitter, Instagram, Mail, Phone, MapPin } from "lucide-react";
+import { Facebook, Twitter, Instagram, Mail, Phone, MapPin } from "lucide-react";
 import { useBarangay } from "@/components/providers/BarangayProvider";
 import lguConfig from "@/config/lgu.config.json";
 
@@ -19,7 +19,7 @@ interface FooterProps {
     contactPhone?: string;
 }
 
-export function Footer(props: FooterProps) {
+export function Footer(_props: FooterProps) {
     const themeColor = lguConfig.theme.primary;
     const logoUrl = lguConfig.assets.logo;
     const brandWord1 = lguConfig.identity.brandWord1;

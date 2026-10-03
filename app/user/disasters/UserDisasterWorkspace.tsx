@@ -61,7 +61,6 @@ export function UserDisasterWorkspace({
                     <p className="text-slate-500 font-medium italic max-w-xl">
 { }
 { }
-                        {/* eslint-disable-next-line react/no-unescaped-entities */}
                         Explore our interactive hazard maps to understand geological risks,
                         flood zones, and environmental safety data in your vicinity.
                     </p>

@@ -6,14 +6,12 @@ import Image from "next/image";
 import {
     Loader2,
     Maximize2,
-    Minimize2,
     ZoomIn,
     ZoomOut,
     RotateCcw,
     Layers,
     Globe,
     X,
-    ShieldCheck,
     Compass
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
