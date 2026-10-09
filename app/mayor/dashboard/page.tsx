@@ -10,6 +10,7 @@ import { ConfigurableStrategicOpsSection } from "@/app/mayor/dashboard/component
 import { ConfigurableAnalyticsSection } from "@/app/mayor/dashboard/components/ConfigurableAnalyticsSection";
 import { ConfigurableCommunitySection } from "@/app/mayor/dashboard/components/ConfigurableCommunitySection";
 import { DashboardClientWrapper } from "@/app/mayor/dashboard/components/DashboardClientWrapper";
+import { SimulatedSituationMap } from "@/components/maps/SimulatedSituationMap";
 
 export const dynamic = "force-dynamic";
 
@@ -555,6 +556,8 @@ export default async function MayorDashboardPage(props: {
                 reportsCount={reportsCount}
                 projectsCount={projectsCount}
             />
+
+            <SimulatedSituationMap />
 
             {/* Strategic Operations Grid */}
             <ConfigurableStrategicOpsSection

@@ -23,6 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import lguConfig from "@/config/lgu.config.json";
 
 export function UserProjectsView({ initialProjects = [] }: { initialProjects: any[] }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -122,7 +123,7 @@ export function UserProjectsView({ initialProjects = [] }: { initialProjects: an
                             <div className="h-full bg-white dark:bg-[#0a0c10] rounded-2xl md:rounded-[3rem] border border-slate-100 dark:border-white/5 shadow-lg shadow-slate-200/50 dark:shadow-none flex flex-col group-hover:border-primary transition-all overflow-hidden">
                                 <div className="relative aspect-[4/3] md:h-64 w-full overflow-hidden">
                                     <Image
-                                        src={project.imageUrl || "/projects/default.png"}
+                                        src={project.imageUrl || lguConfig.assets.contentPlaceholder}
                                         alt={project.title}
                                         fill
                                         className="object-cover group-hover:scale-110 transition-transform duration-1000"

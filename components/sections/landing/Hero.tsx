@@ -17,28 +17,80 @@ interface HeroProps {
 export function Hero({ slides, themeColor = "#0038a8", isMaintenanceActive = false }: HeroProps) {
     const [current, setCurrent] = React.useState(0);
 
+    const defaultSlides: HeroSlide[] = React.useMemo(() => [
+        {
+            id: "default-slide-1",
+            title: "Empowering Citizens Through Digital Governance",
+            subtitle: null,
+            tagline: "Welcome to the Official E-LGU Portal",
+            imageUrl: "/images/lgu-seal-full.jpg",
+            primaryBtnText: "Explore Online Services",
+            primaryBtnLink: "#services",
+            secondaryBtnText: "Municipal Leadership",
+            secondaryBtnLink: "#leadership",
+            barangay: null,
+            order: 1,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        },
+        {
+            id: "default-slide-2",
+            title: "Fast, Transparent & Efficient Public Services",
+            subtitle: null,
+            tagline: "Local Government Unit Services",
+            imageUrl: "/images/lgu-logo.png",
+            primaryBtnText: "Apply for Permits",
+            primaryBtnLink: "/user/services",
+            secondaryBtnText: "Track Applications",
+            secondaryBtnLink: "/user/services/requests",
+            barangay: null,
+            order: 2,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        },
+        {
+            id: "default-slide-3",
+            title: "24/7 Civic Safety & Emergency Response",
+            subtitle: null,
+            tagline: "Public Order & Disaster Response",
+            imageUrl: "/images/lgu-seal-full.jpg",
+            primaryBtnText: "Report Emergency",
+            primaryBtnLink: "#emergency",
+            secondaryBtnText: "Emergency Hotlines",
+            secondaryBtnLink: "#emergency",
+            barangay: null,
+            order: 3,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        },
+    ], []);
 
-    const next = () => setCurrent((prev) => (prev + 1) % slides.length);
-    const prev = () => setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+    const effectiveSlides = React.useMemo(() => {
+        return (slides && slides.length > 0) ? slides : defaultSlides;
+    }, [slides, defaultSlides]);
 
-    // Reset current if out of bounds (e.g., when slides change)
+    const next = () => setCurrent((prev) => (prev + 1) % effectiveSlides.length);
+    const prev = () => setCurrent((prev) => (prev - 1 + effectiveSlides.length) % effectiveSlides.length);
+
     React.useEffect(() => {
-        if (current >= slides.length) {
+        if (current >= effectiveSlides.length) {
             setCurrent(0);
         }
-    }, [slides.length, current]);
+    }, [effectiveSlides.length, current]);
 
-    // Auto-advance
     React.useEffect(() => {
-        if (slides.length <= 1) return;
-        const timer = setInterval(next, 8000);
+        if (effectiveSlides.length <= 1) return;
+        const timer = setInterval(next, 7000);
         return () => clearInterval(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [slides.length]);
+    }, [effectiveSlides.length]);
 
-    if (!slides || slides.length === 0) return null;
+    const [heroImageError, setHeroImageError] = React.useState<Record<string, boolean>>({});
 
-    const activeSlide = slides[current] || slides[0];
+    const activeSlide = effectiveSlides[current] || effectiveSlides[0];
+    const slideImageUrl = heroImageError[activeSlide.id] ? "/images/lgu-seal-full.jpg" : (activeSlide.imageUrl || "/images/lgu-seal-full.jpg");
 
     return (
         <section className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-slate-950">
@@ -52,18 +104,20 @@ export function Hero({ slides, themeColor = "#0038a8", isMaintenanceActive = fal
                     className="absolute inset-0 z-0"
                 >
                     <Image
-                        src={activeSlide.imageUrl}
+                        src={slideImageUrl}
                         alt={activeSlide.title}
                         fill
-                        className="object-cover scale-105"
+                        className="object-cover scale-105 filter brightness-90"
                         priority
+                        onError={() => setHeroImageError((prev) => ({ ...prev, [activeSlide.id]: true }))}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/45 to-black/85 z-10" />
-                    <div className="absolute inset-0 bg-blue-900/10 mix-blend-overlay z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/50 to-slate-950/90 z-10" />
+                    <div className="absolute inset-0 bg-blue-600/10 mix-blend-overlay z-10" />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent z-10 pointer-events-none" />
                 </motion.div>
             </AnimatePresence>
 
-            <div className="relative z-20 max-w-7xl mx-auto px-6 text-center w-full">
+            <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 text-center w-full">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeSlide.id}
@@ -71,21 +125,21 @@ export function Hero({ slides, themeColor = "#0038a8", isMaintenanceActive = fal
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -30 }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
-                        className="space-y-6 md:space-y-10"
+                        className="space-y-6 md:space-y-10 max-w-5xl mx-auto"
                     >
-                        <div className="space-y-3 md:space-y-4">
+                        <div className="space-y-3 md:space-y-5">
                             {activeSlide.tagline && (
                                 <motion.span
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ delay: 0.2 }}
-                                    className="inline-block px-3 py-1 md:px-4 md:py-1.5 backdrop-blur-md rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
-                                    style={{ backgroundColor: `${themeColor}33`, borderColor: `${themeColor}55`, borderWidth: 1 }}
+                                    className="inline-block px-4 py-1.5 backdrop-blur-xl rounded-full text-[9px] sm:text-[11px] font-black uppercase tracking-[0.25em] md:tracking-[0.35em] text-white shadow-[0_0_20px_rgba(0,56,168,0.4)] border border-white/20"
+                                    style={{ backgroundColor: `${themeColor}44` }}
                                 >
                                     {activeSlide.tagline}
                                 </motion.span>
                             )}
-                            <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black text-white uppercase italic tracking-tighter leading-[0.9] md:leading-[0.85] whitespace-pre-line drop-shadow-[0_6px_20px_rgba(0,0,0,0.85)]">
+                            <h1 className="text-3xl xs:text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white uppercase italic tracking-tighter leading-[0.95] md:leading-[0.88] break-words max-w-4xl mx-auto drop-shadow-[0_8px_30px_rgba(0,0,0,0.9)]">
                                 {activeSlide.title.replace(/-/g, "\u2011")}
                             </h1>
                         </div>
@@ -110,7 +164,7 @@ export function Hero({ slides, themeColor = "#0038a8", isMaintenanceActive = fal
             </div>
 
             {/* Navigation Controls */}
-            {slides.length > 1 && (
+            {effectiveSlides.length > 1 && (
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-30 hidden md:flex justify-between px-4 md:px-10 pointer-events-none">
                     <button
                         onClick={prev}
@@ -128,9 +182,9 @@ export function Hero({ slides, themeColor = "#0038a8", isMaintenanceActive = fal
             )}
 
             {/* Slide Indicators */}
-            {slides.length > 1 && (
+            {effectiveSlides.length > 1 && (
                 <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 flex gap-3">
-                    {slides.map((_, i) => (
+                    {effectiveSlides.map((_, i) => (
                         <button
                             key={i}
                             onClick={() => setCurrent(i)}

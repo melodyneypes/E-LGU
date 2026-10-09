@@ -502,16 +502,16 @@ export default async function Home({
                 </div>
             )}
 
-            <ClientOnly delay={1000} fallback={<HeroSkeleton />}>
+            <ClientOnly fallback={<HeroSkeleton />}>
                 <Hero slides={slides} themeColor={themeColor} isMaintenanceActive={maintenance} />
             </ClientOnly>
 
-            <ClientOnly delay={1000}>
+            <ClientOnly>
                 <CivicSafetyHub themeColor={themeColor} />
             </ClientOnly>
 
             {showAppDownload && (
-                <ClientOnly delay={1000}>
+                <ClientOnly>
                     <AppDownloadSection
                         themeColor={themeColor}
                         googlePlayUrl={googlePlayUrl}
@@ -524,26 +524,26 @@ export default async function Home({
 
             <div className="space-y-4 pb-6 md:pb-0">
                 {showDiningLodging && (
-                    <ClientOnly delay={1000} fallback={<DiningLodgingSkeleton />}>
+                    <ClientOnly fallback={<DiningLodgingSkeleton />}>
                         <DiningLodging items={discoveryItems} />
                     </ClientOnly>
                 )}
                 {showPlacesToVisit && (
-                    <ClientOnly delay={1000} fallback={<PlacesToVisitSkeleton />}>
+                    <ClientOnly fallback={<PlacesToVisitSkeleton />}>
                         <PlacesToVisit spots={tourismSpots} />
                     </ClientOnly>
                 )}
 
                 {/* Major Updates: Events with Calendar */}
                 {showEvents && (
-                    <ClientOnly delay={1000} fallback={<EventsCalendarSkeleton />}>
+                    <ClientOnly fallback={<EventsCalendarSkeleton />}>
                         <EventsCalendarSection events={events} />
                     </ClientOnly>
                 )}
 
                 {/* Announcements & News Section */}
                 {showAnnouncements && (
-                    <ClientOnly delay={1000} fallback={<AnnouncementsNewsSkeleton />}>
+                    <ClientOnly fallback={<AnnouncementsNewsSkeleton />}>
                         <AnnouncementsNews 
                             announcements={announcements} 
                             healthAnnouncements={healthAnnouncements} 
@@ -553,36 +553,36 @@ export default async function Home({
                     </ClientOnly>
                 )}
 
-                <ClientOnly delay={1000}>
+                <ClientOnly>
                     <OrdinancesSection documents={legislativeDocs as any[]} themeColor={themeColor} />
                 </ClientOnly>
 
                 {/* Infrastructure Projects Section */}
                 {showLGUProjects && (
-                    <ClientOnly delay={1000} fallback={<LGUProjectsSkeleton />}>
+                    <ClientOnly fallback={<LGUProjectsSkeleton />}>
                         <LGUProjects projects={projects} />
                     </ClientOnly>
                 )}
 
                 {showJobs && (
-                    <ClientOnly delay={1000} fallback={<JobBoardSkeleton />}>
+                    <ClientOnly fallback={<JobBoardSkeleton />}>
                         <JobBoard jobs={jobs} isMaintenanceActive={maintenance} />
                     </ClientOnly>
                 )}
                 {showGovernment && (
-                    <ClientOnly delay={1000} fallback={<GovernmentSkeleton />}>
+                    <ClientOnly fallback={<GovernmentSkeleton />}>
                         <Government officials={officials} barangay={selectedBarangay} />
                     </ClientOnly>
                 )}
                 {showServices && (
-                    <ClientOnly delay={1000} fallback={<ServicesSkeleton />}>
+                    <ClientOnly fallback={<ServicesSkeleton />}>
                         <Services services={services} themeColor={themeColor} isMaintenanceActive={maintenance} />
                     </ClientOnly>
                 )}
             </div>
 
             {showChurch && (
-                <ClientOnly delay={1000} fallback={<ParishCornerSkeleton />}>
+                <ClientOnly fallback={<ParishCornerSkeleton />}>
                     <ParishCorner
                         info={churchInfo}
                         schedules={churchSchedules}
@@ -591,7 +591,7 @@ export default async function Home({
                 </ClientOnly>
             )}
             {showEmergency && (
-                <ClientOnly delay={1000} fallback={<EmergencyReportSkeleton />}>
+                <ClientOnly fallback={<EmergencyReportSkeleton />}>
                     <EmergencyReport 
                         initialHotlines={hotlines} 
                         initialFleet={initialFleet}

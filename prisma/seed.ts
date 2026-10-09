@@ -11,17 +11,30 @@ async function main() {
   console.log("🧹 Cleaning up existing database records...");
 
   // Delete records in reverse dependency order
-  await prisma.cedula.deleteMany({});
-  await prisma.businessPermit.deleteMany({});
-  await prisma.birthCertificateRequest.deleteMany({});
-  await prisma.birthCertificateRegistry.deleteMany({});
-  await prisma.transaction.deleteMany({});
-  await prisma.resident.deleteMany({});
-  await prisma.user.deleteMany({});
-  await prisma.barangayInfo.deleteMany({});
-  await prisma.transactionType.deleteMany({});
-  await prisma.systemSetting.deleteMany({});
-  await prisma.heroSlide.deleteMany({});
+  const safeDelete = async (fn: () => Promise<any>) => { try { await fn(); } catch (_) {} };
+  await safeDelete(() => (prisma as any).tourismSpot?.deleteMany({}));
+  await safeDelete(() => (prisma as any).diningLodging?.deleteMany({}));
+  await safeDelete(() => (prisma as any).event?.deleteMany({}));
+  await safeDelete(() => (prisma as any).announcement?.deleteMany({}));
+  await safeDelete(() => (prisma as any).project?.deleteMany({}));
+  await safeDelete(() => (prisma as any).jobPosting?.deleteMany({}));
+  await safeDelete(() => (prisma as any).hotline?.deleteMany({}));
+  await safeDelete(() => (prisma as any).stallCollection?.deleteMany({}));
+  await safeDelete(() => (prisma as any).stallLease?.deleteMany({}));
+  await safeDelete(() => (prisma as any).marketStall?.deleteMany({}));
+  await safeDelete(() => (prisma as any).impoundedVehicle?.deleteMany({}));
+  await safeDelete(() => prisma.official.deleteMany({}));
+  await safeDelete(() => prisma.cedula.deleteMany({}));
+  await safeDelete(() => prisma.businessPermit.deleteMany({}));
+  await safeDelete(() => prisma.birthCertificateRequest.deleteMany({}));
+  await safeDelete(() => prisma.birthCertificateRegistry.deleteMany({}));
+  await safeDelete(() => prisma.transaction.deleteMany({}));
+  // Resident records are operational data and must survive sample reseeding.
+  await safeDelete(() => prisma.user.deleteMany({}));
+  await safeDelete(() => prisma.barangayInfo.deleteMany({}));
+  await safeDelete(() => prisma.transactionType.deleteMany({}));
+  await safeDelete(() => prisma.systemSetting.deleteMany({}));
+  await safeDelete(() => prisma.heroSlide.deleteMany({}));
 
   console.log("✨ Cleanup completed successfully! Database is now at zero.");
 
@@ -83,7 +96,7 @@ async function main() {
     await prisma.barangayInfo.create({
       data: {
         name,
-        description: `Barangay ${name} in ${lguConfig.identity.fullName}.`,
+        description: `Sample service area for ${name}.`,
         deliveryFee: 50.00,
         isLogisticsActive: true,
         estimatedDeliveryDays: 3,
@@ -338,7 +351,7 @@ async function main() {
       title: "Welcome to E-LGU",
       subtitle: "Your digital gateway to municipal services, tourism, and community events.",
       tagline: "Fast, Reliable, Secure",
-      imageUrl: "https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?q=80&w=1200",
+      imageUrl: "/images/municipality-digital-services.webp",
       order: 0,
       isActive: true,
       primaryBtnText: "OUR SERVICES",
@@ -420,13 +433,20 @@ async function main() {
   ];
 
   for (const u of mockUsers) {
-    await prisma.user.create({ data: u });
+    if (!u.email) continue;
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: {},
+      create: u,
+    });
   }
 
   // 7. SEED CITIZEN & RESIDENT RELATION
   console.log("👤 Creating verified citizen user and resident profile link...");
-  const citizen = await prisma.user.create({
-    data: {
+  const citizen = await prisma.user.upsert({
+    where: { email: lguConfig.seedAccounts.residentEmail },
+    update: {},
+    create: {
       name: "John Doe",
       email: lguConfig.seedAccounts.residentEmail,
       password: commonHashedPassword,
@@ -460,6 +480,426 @@ async function main() {
       consentTimestamp: new Date(),
     }
   });
+
+  // 6. SEED MUNICIPAL OFFICIALS
+  console.log("🏛️ Seeding official Municipal Leadership & Council Members...");
+  const initialOfficials = [
+    {
+      name: "Hon. Roberto 'Bert' S. Garcia",
+      position: "Municipal Mayor",
+      imageUrl: "/images/officials/mayor.png",
+      category: "LGU",
+      order: 1,
+      bio: "Dedicated public servant committed to transparent governance, digital transformation, and sustainable community development.",
+      motto: "Serbisyo nang May Tapat na Puso",
+      achievements: "Master in Public Administration (UP Diliman), Digital LGU Leadership Award 2024",
+      education: "Bachelor of Science in Political Science, UP Diliman",
+      email: "mayor@lgu.gov.ph",
+      contactNumber: "+63 917 123 4567"
+    },
+    {
+      name: "Hon. Antonio R. Mendoza",
+      position: "Municipal Vice Mayor",
+      imageUrl: "/images/officials/vice-mayor.png",
+      category: "LGU",
+      order: 2,
+      bio: "Presiding Officer of the Sangguniang Bayan, advocating for youth empowerment, education, and economic legislation.",
+      motto: "Mataas na Kalidad ng Batas para sa Mamamayan",
+      achievements: "Passage of the Municipal Youth Development & Digital Governance Code",
+      education: "Juris Doctor, Ateneo de Manila Law School",
+      email: "vicemayor@lgu.gov.ph",
+      contactNumber: "+63 917 123 4568"
+    },
+    {
+      name: "Hon. Juanito 'Juan' P. Dela Cruz",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-1.png",
+      category: "LGU",
+      order: 3,
+      bio: "Chairperson, Committee on Finance, Budget, and Appropriations.",
+      motto: "Tapat at Matalinong Paggamit ng Pondo ng Bayan",
+    },
+    {
+      name: "Hon. Carmen L. Reyes",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-2.png",
+      category: "LGU",
+      order: 4,
+      bio: "Chairperson, Committee on Health, Sanitation, and Social Services.",
+      motto: "Kalusugan at Kalinga sa Bawat Pamilya",
+    },
+    {
+      name: "Hon. Elena M. Ramos",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-3.jpg",
+      category: "LGU",
+      order: 5,
+      bio: "Chairperson, Committee on Education, Culture, and the Arts.",
+      motto: "Edukasyon ang Susi sa Maunlad na Bukas",
+    },
+    {
+      name: "Hon. Dr. Victoria C. Alcantara",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-4.jpg",
+      category: "LGU",
+      order: 6,
+      bio: "Chairperson, Committee on Environment and Natural Resources.",
+      motto: "Luntiang Kapaligiran, Ligtas na Pamayanan",
+    },
+    {
+      name: "Hon. Corazon 'Cora' B. Aquino-Villanueva",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-5.jpg",
+      category: "LGU",
+      order: 7,
+      bio: "Chairperson, Committee on Tourism, Trade, and Agriculture.",
+      motto: "Kasaganaan sa Bukid at Negosyo",
+    },
+    {
+      name: "Hon. Alejandro 'Alex' T. Bautista",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-6.jpg",
+      category: "LGU",
+      order: 8,
+      bio: "Chairperson, Committee on Peace and Order, Public Safety, and MDRRMO.",
+      motto: "Kapayapaan at Kaayusan sa Bawat Sulok ng Bayan",
+    },
+    {
+      name: "Hon. Ramon 'Mon' G. Fernandez",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-7.png",
+      category: "LGU",
+      order: 9,
+      bio: "Chairperson, Committee on Economic Enterprise and Market Logistics.",
+      motto: "Umunlad na Pamilihan, Masiglang Ekonomiya",
+    },
+    {
+      name: "Hon. Fernando 'Nando' D. Castro",
+      position: "Sangguniang Bayan Member",
+      imageUrl: "/images/officials/councilor-9.png",
+      category: "LGU",
+      order: 10,
+      bio: "Chairperson, Committee on Transportation and Public Utilities.",
+      motto: "Ligtas at Maayos na Byahe para sa Lahat",
+    },
+    {
+      name: "Hon. Rodolfo C. Dela Cruz",
+      position: "LnB President / Ex-Officio Member",
+      imageUrl: "/images/officials/lnb-president.png",
+      category: "LGU",
+      order: 11,
+      bio: "President, Liga ng mga Barangay. Championing barangay autonomy and local community welfare.",
+      motto: "Pagkakaisa ng mga Barangay para sa Sambayanan",
+    },
+    {
+      name: "Hon. Gabriel 'Gabi' K. Navarro",
+      position: "SK Federation President / Ex-Officio Member",
+      imageUrl: "/images/officials/sk-president.png",
+      category: "LGU",
+      order: 12,
+      bio: "President, Sangguniang Kabataan Federation. Empowering young leaders and sports development.",
+      motto: "Kabataan ang Pag-asa at Lakas ng Bayan",
+    },
+  ];
+
+  for (const off of initialOfficials) {
+    await prisma.official.create({ data: off });
+  }
+  console.log(`✅ Seeded ${initialOfficials.length} municipal officials.`);
+
+  // 7. SEED HERO CAROUSEL SLIDES
+  console.log("🖼️ Seeding Hero Carousel Slides...");
+  const sampleSlides = [
+    {
+      title: "Empowering Citizens Through Digital Governance",
+      tagline: "Welcome to the Official E-LGU Portal",
+      imageUrl: "/images/lgu-seal-full.jpg",
+      primaryBtnText: "Explore Online Services",
+      primaryBtnLink: "#services",
+      secondaryBtnText: "Municipal Leadership",
+      secondaryBtnLink: "#leadership",
+      order: 1,
+      isActive: true,
+    },
+    {
+      title: "Fast, Transparent & Efficient Public Services",
+      tagline: "Local Government Unit Services",
+      imageUrl: "/images/lgu-logo.png",
+      primaryBtnText: "Apply for Permits",
+      primaryBtnLink: "/user/services",
+      secondaryBtnText: "Track Applications",
+      secondaryBtnLink: "/user/services/requests",
+      order: 2,
+      isActive: true,
+    },
+    {
+      title: "24/7 Civic Safety & Emergency Response",
+      tagline: "Public Order & Disaster Preparedness",
+      imageUrl: "/images/lgu-seal-full.jpg",
+      primaryBtnText: "Report Emergency",
+      primaryBtnLink: "#emergency",
+      secondaryBtnText: "Emergency Hotlines",
+      secondaryBtnLink: "#emergency",
+      order: 3,
+      isActive: true,
+    },
+  ];
+  for (const slide of sampleSlides) {
+    await prisma.heroSlide.create({ data: slide });
+  }
+  console.log(`✅ Seeded ${sampleSlides.length} hero slides.`);
+
+  // 8. SEED EMERGENCY HOTLINES
+  console.log("📞 Seeding Emergency Hotlines...");
+  const sampleHotlines = [
+    {
+      name: "MDRRMO Rescue & Emergency Response",
+      mobileNumber: lguConfig.contact.hotlines.disasterResponse,
+      category: "DISASTER",
+    },
+    {
+      name: "Municipal Police Station",
+      mobileNumber: lguConfig.contact.hotlines.police,
+      category: "POLICE",
+    },
+    {
+      name: "Bureau of Fire Protection",
+      mobileNumber: lguConfig.contact.hotlines.fire,
+      category: "FIRE",
+    },
+    {
+      name: "Rural Health Unit / Medical Ambulance",
+      mobileNumber: lguConfig.contact.hotlines.health,
+      category: "HEALTH",
+    },
+  ];
+  for (const h of sampleHotlines) {
+    await (prisma as any).hotline?.create({ data: h });
+  }
+  console.log(`✅ Seeded emergency hotlines.`);
+
+  // 9. SEED ANNOUNCEMENTS & EVENTS
+  console.log("📢 Seeding Public Advisories & Events...");
+  try {
+    await (prisma as any).announcement?.create({
+      data: {
+        title: "Launch of the E-LGU Digital Citizen Portal",
+        content: "Citizens can now apply for business permits, cedula, civil registry documents, and track transactions online 24/7.",
+        category: "GENERAL",
+        priority: "HIGH",
+        isPinned: true,
+        isActive: true,
+      }
+    });
+    await (prisma as any).event?.create({
+      data: {
+        title: "Annual Municipal Town Hall & Citizen Assembly",
+        description: "Open forum with municipal leaders, budget presentation, and community consultation.",
+        venueName: "Municipal Gymnasium & Civic Center",
+        address: "Poblacion",
+        category: "COMMUNITY",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        isPublished: true,
+      }
+    });
+
+    // Keep the sample story idempotent so rerunning the seed cannot duplicate it.
+    const sampleNews = {
+      title: "Municipal Government Enhances Public Services with Digital Portal",
+      content: "Citizens can now access key municipal services, request certificates, and track application status online through the new E-LGU Portal.",
+      category: "GOVERNMENT",
+      author: "Municipal Information Office",
+      imageUrl: "/images/municipality-digital-services-news.webp",
+      isPublished: true,
+    };
+    const existingSampleNews = await prisma.news.findFirst({
+      where: {
+        title: sampleNews.title,
+        content: sampleNews.content,
+        category: sampleNews.category,
+        author: sampleNews.author,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (existingSampleNews) {
+      await prisma.news.update({
+        where: { id: existingSampleNews.id },
+        data: { ...sampleNews, publishDate: new Date() },
+      });
+    } else {
+      await prisma.news.create({ data: sampleNews });
+    }
+  } catch (e) {
+    console.log("Noted event/announcement seed error:", e);
+  }
+
+  // 10. SEED LGU PROJECTS & JOBS
+  console.log("🏗️ Seeding LGU Projects & Job Openings...");
+  try {
+    const sampleProjects = [
+      {
+        title: "Municipal Digital Infrastructure & Fiber Connectivity",
+        description: "High-speed network linking all barangay halls, health centers, and disaster command posts.",
+        category: "INFRASTRUCTURE",
+        location: "Townwide",
+        imageUrl: "/images/projects/fiber-connectivity.webp",
+        status: "ONGOING",
+        budget: "₱15,000,000.00",
+        startDate: new Date("2025-01-15"),
+        progress: 75,
+        isPublished: true,
+      },
+      {
+        title: "Modernized Multi-Purpose Evacuation & Civic Center",
+        description: "Resilient community hall equipped with emergency shelters, solar power backup, and medical triage facilities.",
+        category: "CIVIC WORKS",
+        location: "Barangay Poblacion",
+        imageUrl: "/images/projects/evacuation-civic-center.webp",
+        status: "ONGOING",
+        budget: "₱28,500,000.00",
+        progress: 60,
+        isPublished: true,
+      },
+      {
+        title: "Solar-Powered Street Lighting & Civic Safety Network",
+        description: "Installation of smart solar streetlights along primary thoroughfares and barangay roads for public safety.",
+        category: "PUBLIC SAFETY",
+        location: "Major Municipal Corridors",
+        imageUrl: "/images/projects/solar-street-lighting.webp",
+        status: "COMPLETED",
+        budget: "₱12,200,000.00",
+        progress: 100,
+        isPublished: true,
+      },
+    ];
+
+    for (const projData of sampleProjects) {
+      const existing = await (prisma as any).project?.findFirst({
+        where: { title: projData.title }
+      });
+      if (existing) {
+        await (prisma as any).project?.update({
+          where: { id: existing.id },
+          data: projData
+        });
+      } else {
+        await (prisma as any).project?.create({
+          data: projData
+        });
+      }
+    }
+    await (prisma as any).job?.create({
+      data: {
+        title: "Administrative Aide VI - Treasury Department",
+        department: "Municipal Treasury",
+        description: "Assists in processing revenue collections, online receipt verification, and front desk operations.",
+        qualifications: "Civil Service Sub-Professional Eligible",
+        requirements: "Personal Data Sheet (CS Form 212), Official Transcript of Records",
+        employmentType: "PERMANENT",
+        isActive: true,
+      }
+    });
+
+    // Seed Places to Visit & Dining/Lodging
+    await (prisma as any).tourismSpot?.create({
+      data: {
+        name: "Municipal Eco-Park & Town Plaza",
+        category: "Park & Recreation",
+        description: "Community eco-park featuring landscaped gardens, walking trails, and public outdoor space.",
+        address: "Poblacion",
+        imageUrl: "/images/discovery/eco-park-town-plaza.webp",
+        isPublished: true,
+      }
+    });
+
+    await (prisma as any).dining?.create({
+      data: {
+        name: "Municipal Heritage Cafe",
+        description: "Local dining hub offering traditional cuisine and fresh native delicacies.",
+        address: "Poblacion",
+        imageUrl: "/images/discovery/dining-cafe-interior.webp",
+        cuisineType: "Filipino",
+        isPublished: true,
+      }
+    });
+
+    await (prisma as any).accommodation?.create({
+      data: {
+        name: "Township Executive Lodge",
+        description: "Comfortable municipal lodging accommodations for guests and visiting dignitaries.",
+        address: "Poblacion",
+        imageUrl: "/images/discovery/lodge-bedroom.webp",
+        type: "Inn / Lodge",
+        priceRange: "₱1,200 - ₱2,500",
+        isPublished: true,
+      }
+    });
+    // Keep the sample documents clearly labeled and update them instead of duplicating them.
+    const sampleLegislativeDocuments = [
+      {
+        type: "ORDINANCE",
+        referenceNumber: "SAMPLE-ORD-001",
+        title: "[SAMPLE] Barangay Connectivity and Digital Services Ordinance",
+        description: "Illustrative sample only: a proposed measure about expanding digital access and online municipal services. This is not an enacted ordinance and has no legal effect.",
+        tags: ["SAMPLE", "DIGITAL GOVERNANCE", "PUBLIC SERVICE"],
+        dateApproved: new Date("2025-01-10"),
+        status: "SAMPLE",
+        pdfUrl: null,
+        barangay: null,
+      },
+      {
+        type: "RESOLUTION",
+        referenceNumber: "SAMPLE-RES-001",
+        title: "[SAMPLE] Resolution Supporting Community Development Planning",
+        description: "Illustrative sample only: a resolution-style example about community planning priorities. This is not an adopted resolution and has no legal effect.",
+        tags: ["SAMPLE", "PLANNING", "DEVELOPMENT"],
+        dateApproved: new Date("2025-02-15"),
+        status: "SAMPLE",
+        pdfUrl: null,
+        barangay: null,
+      },
+    ];
+
+    const sampleLegislativeDocumentIds: string[] = [];
+
+    for (const document of sampleLegislativeDocuments) {
+      const existing = await prisma.legislativeDocument.findFirst({
+        where: { referenceNumber: document.referenceNumber },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (existing) {
+        const updated = await prisma.legislativeDocument.update({
+          where: { id: existing.id },
+          data: document,
+        });
+        sampleLegislativeDocumentIds.push(updated.id);
+      } else {
+        const created = await prisma.legislativeDocument.create({ data: document });
+        sampleLegislativeDocumentIds.push(created.id);
+      }
+    }
+
+    await prisma.legislativeDocument.deleteMany({
+      where: {
+        referenceNumber: { in: sampleLegislativeDocuments.map(document => document.referenceNumber) },
+        id: { notIn: sampleLegislativeDocumentIds },
+      },
+    });
+
+    await prisma.legislativeDocument.deleteMany({
+      where: {
+        referenceNumber: "{{LEGISLATIVE_REFERENCE_NUMBER}}",
+        title: "{{LEGISLATIVE_DOCUMENT_TITLE}}",
+        status: "TEMPLATE",
+      },
+    });
+
+  } catch (e) {
+    console.log("Noted project/job/legislative seed error:", e);
+  }
 
   console.log("🎉 Database seeding completed successfully! Ready for actions.");
 }

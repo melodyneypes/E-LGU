@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import lguConfig from "@/config/lgu.config.json";
 
 interface Project {
     id: string;
@@ -74,6 +75,9 @@ export function LGUProjects({ projects }: LGUProjectsProps) {
 
 function ProjectCard({ project, idx, isMobile }: { project: Project; idx: number; isMobile: boolean }) {
     const [isImageLoading, setIsImageLoading] = React.useState(true);
+    const [hasError, setHasError] = React.useState(false);
+
+    const activeImageUrl = hasError ? lguConfig.assets.contentPlaceholder : (project.imageUrl || lguConfig.assets.contentPlaceholder);
 
     const content = (
         <Link 
@@ -86,12 +90,15 @@ function ProjectCard({ project, idx, isMobile }: { project: Project; idx: number
                     <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
                 </div>
                 <Image
-                    src={project.imageUrl || "/projects/default.png"}
+                    src={activeImageUrl}
                     alt={project.title}
                     fill
                     loading="lazy"
                     onLoad={() => setIsImageLoading(false)}
-                    onError={() => setIsImageLoading(false)}
+                    onError={() => {
+                        setIsImageLoading(false);
+                        setHasError(true);
+                    }}
                     className={cn(
                         "object-cover transition-all duration-700",
                         isImageLoading ? 'opacity-0 blur-sm scale-110' : 'opacity-100 blur-0 scale-100',

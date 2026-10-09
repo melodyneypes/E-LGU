@@ -18,6 +18,7 @@ import {
     Layers,
     Building2
 } from "lucide-react";
+import lguConfig from "@/config/lgu.config.json";
 import {
     Dialog,
     DialogContent,
@@ -336,12 +337,14 @@ export function HighPriorityAnnouncementModal({ announcements, themeColor: initi
                             <div className="p-3 sm:p-4 bg-slate-950 overflow-y-auto flex-1 custom-scrollbar">
                                 {hasImage ? (
                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
-                                        {/* Poster / Infographic Image Column */}
                                         <div className="md:col-span-6 relative w-full flex items-center justify-center rounded-xl overflow-hidden border border-slate-800/80 shadow-md bg-slate-900/50">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
                                                 src={activeAnnouncement.imageUrl!}
                                                 alt={activeAnnouncement.title}
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = lguConfig.assets.contentPlaceholder;
+                                                }}
                                                 className="w-full h-auto max-h-[180px] sm:max-h-[260px] md:max-h-[360px] object-contain rounded-xl transition-all duration-300"
                                             />
                                         </div>

@@ -1,23 +1,23 @@
 {
   "identity": {
-    "name": "{{LGU_NAME}}",
-    "fullName": "{{LGU_FULL_NAME}}",
-    "province": "{{PROVINCE_NAME}}",
-    "region": "{{REGION_NAME}}",
+    "name": "E-LGU City",
+    "fullName": "E-LGU City Local Government",
+    "province": "E-LGU Province",
+    "region": "E-LGU Region",
     "brandName": "E-LGU",
     "brandWord1": "E-",
     "brandWord2": "LGU",
-    "tagline": "{{LGU_TAGLINE}}",
-    "demonym": "{{LGU_DEMONYM}}",
-    "website": "{{LGU_WEBSITE_URL}}"
+    "tagline": "Digital Government. Better Services. A Stronger Community.",
+    "demonym": "E-LGU City resident",
+    "website": "https://e-lgu.vercel.app"
   },
   "theme": {
     "primary": "#0038a8"
   },
   "officials": {
-    "mayor": "{{MAYOR_NAME}}",
-    "viceMayor": "{{VICE_MAYOR_NAME}}",
-    "dataPrivacyOfficer": "{{DATA_PRIVACY_OFFICER}}"
+    "mayor": "Hon. Roberto 'Bert' S. Garcia",
+    "viceMayor": "Hon. Antonio R. Mendoza",
+    "dataPrivacyOfficer": "Atty. Clara V. De Guzman"
   },
   "contact": {
     "address": "{{MUNICIPAL_ADDRESS}}",
@@ -26,11 +26,11 @@
     "fax": "{{LGU_FAX}}",
     "officeHours": "{{OFFICE_HOURS}}",
     "hotlines": {
-      "police": "{{POLICE_HOTLINE}}",
-      "fire": "{{FIRE_HOTLINE}}",
-      "health": "{{HEALTH_HOTLINE}}",
-      "healthOfficer": "{{HEALTH_OFFICER_HOTLINE}}",
-      "disasterResponse": "{{DISASTER_RESPONSE_HOTLINE}}"
+      "police": "123456789",
+      "fire": "123456789",
+      "health": "123456789",
+      "healthOfficer": "123456789",
+      "disasterResponse": "123456789"
     }
   },
   "social": {
@@ -98,20 +98,18 @@
   "integrations": {
     "supabaseImageHostname": "{{SUPABASE_PROJECT_REF}}.supabase.co"
   },
-  "barangays": [
-    "{{BARANGAY_NAME}}"
-  ],
+  "barangays": ["Barangay 1", "Barangay 2"],
   "map": {
     "latitude": null,
     "longitude": null,
     "boundaryFile": "/lgu-boundary.json"
   },
   "assets": {
-    "logo": "/images/lgu-placeholder.svg",
-    "favicon": "/images/lgu-placeholder.svg",
-    "heroImage": "/images/lgu-placeholder.svg",
-    "reportLogo": "/images/lgu-placeholder-report.png",
+    "logo": "/images/lgu-logo.png",
+    "favicon": "/images/lgu-logo.png",
+    "heroImage": "/images/lgu-logo.png",
+    "reportLogo": "/images/lgu-logo.png",
     "contentPlaceholder": "/images/local-content-placeholder.svg",
-    "officialPortrait": "/images/lgu-placeholder.svg"
+    "officialPortrait": "/images/officials/mayor.png"
   }
 }

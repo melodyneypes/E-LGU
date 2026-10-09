@@ -79,6 +79,7 @@
     "@types/pg": "^8.18.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "docx": "^9.9.0",
     "env-cmd": "^11.0.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.11",

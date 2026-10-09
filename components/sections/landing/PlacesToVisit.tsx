@@ -111,10 +111,13 @@ interface GalleryCardProps {
 
 function GalleryCard({ spot, isActive, activeIndex, isMobile, onClick }: GalleryCardProps) {
     const [isImageLoading, setIsImageLoading] = React.useState(true);
+    const [hasError, setHasError] = React.useState(false);
+
+    const activeImageUrl = hasError ? lguConfig.assets.contentPlaceholder : (spot.imageUrl || lguConfig.assets.contentPlaceholder);
 
     const cardClasses = cn(
         "group relative h-[180px] md:h-[280px] rounded-2xl md:rounded-[2rem] overflow-hidden shadow-xl cursor-pointer transition-all duration-700 bg-slate-100 dark:bg-slate-900",
-        isActive ? "col-span-2 ring-2 ring-primary shadow-primary/20" : "col-span-1 ring-1 ring-slate-200 dark:ring-white/5 opacity-80 hover:opacity-100"
+        isActive ? "col-span-2 ring-2 ring-primary shadow-primary/20 shadow-[0_0_25px_rgba(0,56,168,0.3)]" : "col-span-1 ring-1 ring-slate-200 dark:ring-white/5 opacity-80 hover:opacity-100"
     );
 
     const content = (
@@ -123,12 +126,15 @@ function GalleryCard({ spot, isActive, activeIndex, isMobile, onClick }: Gallery
                 <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
             </div>
             <Image
-                src={spot.imageUrl || lguConfig.assets.contentPlaceholder}
+                src={activeImageUrl}
                 alt={spot.name}
                 fill
                 loading="lazy"
                 onLoad={() => setIsImageLoading(false)}
-                onError={() => setIsImageLoading(false)}
+                onError={() => {
+                    setIsImageLoading(false);
+                    setHasError(true);
+                }}
                 className={cn(
                     "object-cover transition-all duration-1000",
                     isActive ? "scale-105" : "scale-110",
@@ -156,14 +162,14 @@ function GalleryCard({ spot, isActive, activeIndex, isMobile, onClick }: Gallery
                     </div>
                     <div className="flex-1 min-w-0">
                         <h3 className={cn(
-                            "font-black text-white uppercase italic tracking-tighter leading-tight truncate",
+                            "font-black text-white uppercase italic tracking-tighter leading-tight break-words",
                             isActive ? "text-lg md:text-xl lg:text-2xl" : "text-sm md:text-xl lg:text-2xl"
                         )}>
                             {spot.name}
                         </h3>
                         <p className="text-primary/90 text-[7px] md:text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
                             <MapIcon className="w-2 md:w-2.5 h-2 md:h-2.5 min-w-[8px]" />
-                            <span className="truncate">{spot.address}</span>
+                            <span className="truncate break-words">{spot.address}</span>
                         </p>
                     </div>
                     {isActive && (
@@ -175,7 +181,7 @@ function GalleryCard({ spot, isActive, activeIndex, isMobile, onClick }: Gallery
 
                 {isMobile ? (
                     isActive && (
-                        <p className="text-slate-200 text-xs lg:text-sm font-medium leading-relaxed max-w-2xl italic line-clamp-2 md:line-clamp-none">
+                        <p className="text-slate-200 text-xs lg:text-sm font-medium leading-relaxed max-w-2xl italic line-clamp-2 md:line-clamp-none break-words">
                             {spot.description}
                         </p>
                     )

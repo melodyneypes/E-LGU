@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import LguMapWrapper from "@/components/maps/LguMapWrapper";
+import { SampleMapPreview } from "@/components/maps/SimulatedSituationMap";
 import { copyToClipboard as safeCopyToClipboard, cn } from "@/lib/utils";
 import { getAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
 import lguConfig from "@/config/lgu.config.json";
@@ -135,6 +135,9 @@ export function EmergencyReport({
     };
 
     const activeCount = fleet.filter(f => f.status === "ACTIVE" || f.status === "STANDBY" || f.status === "ON DUTY" || f.status === "MAINTENANCE").length;
+    const hasSampleHotlines = initialHotlines.some(
+        hotline => hotline.mobileNumber === "123456789" || hotline.telephone === "123456789"
+    );
 
     return (
         <section id="hotlines" className="pt-8 md:pt-12 pb-16 md:pb-28 px-6 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white relative border-t border-slate-200 dark:border-white/5">
@@ -155,27 +158,20 @@ export function EmergencyReport({
                                 <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Map Monitoring</h2>
                             </div>
                             <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-lg">
-                                Real-time visualization of regional weather patterns.
+                                Explore sample community locations and simulated response routes alongside the regional weather map.
                             </p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-                        {/* E-LGU Spatial GIS & Hazard Map (Left Side) */}
-                        {isMobile ? (
-                            <div className="rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative bg-[#050505]">
-                                <LguMapWrapper />
-                            </div>
-                        ) : (
-                            <motion.div 
-                                initial={{ opacity: 0, x: -24 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                viewport={{ once: true }}
-                                className="rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative bg-[#050505]"
-                            >
-                                <LguMapWrapper />
-                            </motion.div>
-                        )}
+                        {/* Static illustrative sample map */}
+                        <motion.div
+                            initial={{ opacity: 0, x: -24 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                        >
+                            <SampleMapPreview />
+                        </motion.div>
 
                         {/* Live Weather / Typhoon Map */}
                         {isMobile ? (
@@ -227,6 +223,11 @@ export function EmergencyReport({
                             In case of emergency, please contact the appropriate department immediately. 
                             Lines are open 24/7. Click to copy the number.
                         </p>
+                        {hasSampleHotlines && (
+                            <div role="status" className="mt-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs font-bold leading-relaxed text-amber-700 dark:text-amber-300">
+                                SAMPLE ONLY — These hotline numbers are placeholders, not verified emergency contacts. Replace them with official numbers before relying on them.
+                            </div>
+                        )}
                     </div>
 
                     <div className="overflow-y-auto max-h-[500px] pr-4 custom-scrollbar">
@@ -247,7 +248,7 @@ export function EmergencyReport({
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 group-hover:text-primary transition-colors truncate">{hotline.name}</p>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-base md:text-lg font-black tracking-tighter text-slate-900 dark:text-white">{primaryNumber}</p>
+                                                    <p className="break-all text-base md:text-lg font-black tracking-tighter text-slate-900 dark:text-white">{primaryNumber}</p>
                                                     {copied === primaryNumber && (
                                                         <span className="text-[9px] md:text-[10px] font-bold text-cyan-400 italic animate-in fade-in zoom-in">Copied!</span>
                                                     )}

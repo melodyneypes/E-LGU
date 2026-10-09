@@ -215,24 +215,35 @@ function AnnouncementCard({ item, idx, isMobile }: { item: Announcement; idx: nu
 
 function NewsCard({ item, idx, isMobile }: { item: News; idx: number; isMobile: boolean }) {
     const [isImageLoading, setIsImageLoading] = React.useState(true);
+    const [hasError, setHasError] = React.useState(false);
+
+    const activeImageUrl = hasError ? "/images/lgu-logo.png" : (item.imageUrl || "/images/lgu-logo.png");
+    const isWideBanner = item.imageUrl === "/images/municipality-digital-services-news.webp";
 
     const cardClasses = "flex flex-row items-center gap-3 md:gap-6 group cursor-pointer bg-white dark:bg-[#0f1117] p-3 md:p-5 rounded-[1.5rem] md:rounded-[2rem] border border-slate-200 dark:border-[#2a3040] hover:border-primary transition-all shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden";
 
     const content = (
         <>
-            <div className="relative w-20 h-20 min-w-[5rem] md:min-w-[140px] md:w-auto md:h-32 rounded-xl md:rounded-2xl overflow-hidden shadow-md md:shadow-2xl shadow-primary/10 border border-slate-200 dark:border-white/10 shrink-0 ring-1 ring-slate-200 dark:ring-white/5 bg-slate-100 dark:bg-slate-900">
+            <div className={cn(
+                "relative w-20 h-20 min-w-[5rem] md:min-w-[140px] md:w-auto md:h-32 rounded-xl md:rounded-2xl overflow-hidden shadow-md md:shadow-2xl shadow-primary/10 border border-slate-200 dark:border-white/10 shrink-0 ring-1 ring-slate-200 dark:ring-white/5 bg-slate-100 dark:bg-slate-900",
+                isWideBanner && "w-28 h-16 min-w-[7rem] md:w-[220px] md:min-w-[220px] md:h-[80px] bg-slate-950"
+            )}>
                 <div className={`absolute inset-0 z-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 transition-opacity duration-700 ${isImageLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
                 </div>
                 <Image
-                    src={item.imageUrl || "/news/default.png"}
+                    src={activeImageUrl}
                     alt={item.title}
                     fill
                     loading="lazy"
                     onLoad={() => setIsImageLoading(false)}
-                    onError={() => setIsImageLoading(false)}
+                    onError={() => {
+                        setIsImageLoading(false);
+                        setHasError(true);
+                    }}
                     className={cn(
-                        "object-cover transition-all duration-700",
+                        "transition-all duration-700",
+                        isWideBanner ? "object-contain" : "object-cover",
                         isImageLoading ? 'opacity-0 blur-sm scale-110' : 'opacity-100 blur-0 scale-100',
                         "group-hover:scale-110"
                     )}
@@ -245,16 +256,16 @@ function NewsCard({ item, idx, isMobile }: { item: News; idx: number; isMobile: 
                         <Calendar className="w-2 md:w-2.5 h-2 md:h-2.5" />
                         {format(new Date(item.publishDate), "MMM d, yyyy")}
                     </div>
-                    <div className="flex items-center gap-1 md:gap-1.5 text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <div className="flex items-center gap-1 md:gap-1.5 text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest break-words">
                         <Tag className="w-2 md:w-2.5 h-2 md:h-2.5" />
                         {item.category}
                     </div>
                 </div>
-                <h3 className="text-sm md:text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                <h3 className="text-sm md:text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight group-hover:text-primary transition-colors line-clamp-2 break-words">
                     {item.title}
                 </h3>
                 <div className="flex items-center justify-between gap-4">
-                    <p className="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 font-medium italic line-clamp-2">
+                    <p className="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 font-medium italic line-clamp-2 break-words">
                         {item.content}
                     </p>
                     <div className="hidden md:flex w-10 h-10 bg-primary/10 rounded-full items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-all">

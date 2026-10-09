@@ -99,7 +99,7 @@ function DiningCard({ item }: { item: CombinedItem }) {
     const subCategory = isDining ? item.cuisineType : item.type;
     const detailHref = isDining ? `/user/dining/${item.id}` : `/user/accommodation/${item.id}`;
 
-    const activeImageUrl = hasError ? null : lguConfig.assets.contentPlaceholder;
+    const activeImageUrl = hasError ? null : (item.imageUrl || lguConfig.assets.contentPlaceholder);
 
     return (
         <div>
@@ -136,7 +136,7 @@ function DiningCard({ item }: { item: CombinedItem }) {
                                 {item.itemType}
                             </span>
                             {subCategory && (
-                                <span className="inline-flex items-center gap-1 md:gap-1.5 px-2 py-0.5 md:px-3 md:py-1 bg-white/90 backdrop-blur-md rounded-full text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] text-slate-900 shadow-lg">
+                                <span className="inline-flex items-center gap-1 md:gap-1.5 px-2 py-0.5 md:px-3 md:py-1 bg-white/90 backdrop-blur-md rounded-full text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] text-slate-900 shadow-lg break-words">
                                     {subCategory}
                                 </span>
                             )}
@@ -156,7 +156,7 @@ function DiningCard({ item }: { item: CombinedItem }) {
                     </div>
 
                     <div className="space-y-1 md:space-y-2 px-1">
-                        <h3 className="text-sm md:text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight truncate group-hover:text-primary transition-colors">
+                        <h3 className="text-sm md:text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight truncate group-hover:text-primary transition-colors break-words">
                             {sanitizeLguText(item.name)}
                         </h3>
                         <div className="flex items-center gap-1 text-slate-400">

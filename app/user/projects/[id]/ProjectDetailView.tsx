@@ -6,6 +6,7 @@ import { UserBreadcrumb } from "@/components/shared/UserBreadcrumb";
 import { format } from "date-fns";
 import { Project } from "../../../admin/projects/providers/ProjectsProvider";
 import { toast } from "sonner";
+import lguConfig from "@/config/lgu.config.json";
 
 function getStatusIcon(status: string) {
     const lowerStatus = status.toLowerCase();
@@ -59,7 +60,7 @@ export function ProjectDetailView({ project }: { project: Project }) {
                 {/* Hero Section */}
                 <div className="relative aspect-video w-full rounded-2xl md:rounded-[3rem] overflow-hidden shadow-2xl border border-slate-200 dark:border-white/5 group">
                     <Image
-                        src={project.imageUrl || "/projects/default.png"}
+                        src={project.imageUrl || lguConfig.assets.contentPlaceholder}
                         alt={project.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-1000"
