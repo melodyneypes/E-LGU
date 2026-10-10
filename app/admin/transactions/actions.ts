@@ -5879,46 +5879,11 @@ export async function submitZoningClearanceAction(id: string, url: string) {
 export async function getBFPTransactions(status?: string, searchTerm?: string, dateFilter?: string) {
     try {
         const user = await assertSessionUser();
-        assertUserRoles(user, ["BFP", "ADMIN"]);
+        assertUserRoles(user, ["BFP", "ADMIN", "ENGINEER", "MPDC_ZONING", "MAYOR", "ADMIN_AIDE", "TREASURY_STAFF", "BARANGAY_CAPTAIN", "BARANGAY_ADMIN"]);
 
         const where: any = {
             ...engineeringPermitTypeWhere
         };
-
-        // BFP only sees transactions that the Engineer explicitly forwarded and that already have Zoning endorsement
-        where.additionalData = {
-            path: ['feeAssessment', 'bfpSubmitted'],
-            equals: true,
-        };
-
-        if (status === "PENDING") {
-            where.additionalData = {
-                ...where.additionalData,
-                path: ['bfpStatus'],
-                equals: null
-            };
-        } else if (status === "ACKNOWLEDGED") {
-            where.additionalData = {
-                ...where.additionalData,
-                path: ['bfpStatus'],
-                equals: "ACKNOWLEDGED"
-            };
-        } else if (status === "COMPLETED") {
-            where.OR = [
-                {
-                    additionalData: {
-                        path: ['bfpClearanceUrl'],
-                        not: null
-                    }
-                },
-                {
-                    additionalData: {
-                        path: ['bfpStatus'],
-                        equals: "COMPLETED"
-                    }
-                }
-            ];
-        }
 
         if (searchTerm) {
             where.OR = [
@@ -5941,14 +5906,14 @@ export async function getBFPTransactions(status?: string, searchTerm?: string, d
             orderBy: { updatedAt: "desc" }
         });
         
-        // BFP filter: Dispatched by Municipal Engineer for Fire Safety evaluation
+        // BFP filter: Dispatched by Municipal Engineer or tagged for BFP Fire Safety evaluation
         transactions = transactions.filter((tx: any) => {
             const assess = tx.additionalData?.feeAssessment;
-            return assess && (assess.bfpSubmitted === true || assess.engineeringApproved === true);
+            return assess && (assess.bfpSubmitted === true || assess.engineeringApproved === true || assess.engineerEndorsedToZoning === true || tx.additionalData?.bfpStatus);
         });
         
         if (status === "PENDING") {
-            transactions = transactions.filter((tx: any) => !tx.additionalData?.bfpStatus);
+            transactions = transactions.filter((tx: any) => !tx.additionalData?.bfpStatus || tx.additionalData?.bfpStatus === "PENDING");
         } else if (status === "ACKNOWLEDGED") {
             transactions = transactions.filter((tx: any) => tx.additionalData?.bfpStatus === "ACKNOWLEDGED" && !tx.additionalData?.bfpClearanceUrl);
         } else if (status === "COMPLETED") {
@@ -5956,16 +5921,16 @@ export async function getBFPTransactions(status?: string, searchTerm?: string, d
         }
 
         return { success: true, data: transactions };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Get BFP transactions error:", error);
-        return { success: false, error: "Failed to fetch BFP transactions" };
+        return { success: false, error: error.message || "Failed to fetch BFP transactions" };
     }
 }
 
 export async function getBFPStatusCounts() {
     try {
         const user = await assertSessionUser();
-        assertUserRoles(user, ["BFP", "ADMIN"]);
+        assertUserRoles(user, ["BFP", "ADMIN", "ENGINEER", "MPDC_ZONING", "MAYOR", "ADMIN_AIDE", "TREASURY_STAFF", "BARANGAY_CAPTAIN", "BARANGAY_ADMIN"]);
 
         const transactions = await prisma.transaction.findMany({
             where: {
@@ -5980,7 +5945,7 @@ export async function getBFPStatusCounts() {
         
         transactions.forEach((tx: any) => {
             const assess = tx.additionalData?.feeAssessment;
-            if (assess && (assess.bfpSubmitted === true || assess.engineeringApproved === true)) {
+            if (assess && (assess.bfpSubmitted === true || assess.engineeringApproved === true || assess.engineerEndorsedToZoning === true || tx.additionalData?.bfpStatus)) {
                 if (tx.additionalData?.bfpStatus === "COMPLETED" || tx.additionalData?.bfpClearanceUrl) {
                     completed++;
                     return;
@@ -5994,9 +5959,9 @@ export async function getBFPStatusCounts() {
         });
 
         return { success: true, data: { PENDING: pending, ACKNOWLEDGED: acknowledged, COMPLETED: completed } };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Get BFP counts error:", error);
-        return { success: false, error: "Failed to fetch BFP counts" };
+        return { success: false, error: error.message || "Failed to fetch BFP counts" };
     }
 }
 
