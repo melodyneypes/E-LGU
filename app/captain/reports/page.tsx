@@ -23,7 +23,7 @@ export default async function CaptainReportsPage(props: {
         redirect("/auth/login");
     }
 
-    if (user?.role !== "BARANGAY_CAPTAIN" && user?.role !== "ADMIN") {
+    if (user?.role !== "BARANGAY_CAPTAIN" && user?.role !== "BARANGAY_ADMIN" && user?.role !== "ADMIN") {
         redirect("/auth/login");
     }
 

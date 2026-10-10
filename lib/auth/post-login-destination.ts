@@ -19,7 +19,7 @@ export function getPostLoginDestination(
     if (role === "MAYOR") {
         return "/mayor/dashboard";
     }
-    if (role === "BARANGAY_CAPTAIN") {
+    if (role === "BARANGAY_CAPTAIN" || role === "BARANGAY_ADMIN") {
         return "/captain/dashboard";
     }
     if (role === "TREASURY_STAFF" || (role === "ADMIN" && department === "TREASURY")) {

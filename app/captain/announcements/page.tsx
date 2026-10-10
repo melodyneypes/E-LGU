@@ -24,7 +24,7 @@ export default async function CaptainAnnouncementsPage(props: {
     const user = session?.user as any;
     const userRole = user?.role;
 
-    if (!session || (userRole !== "BARANGAY_CAPTAIN" && userRole !== "ADMIN")) {
+    if (!session || (userRole !== "BARANGAY_CAPTAIN" && userRole !== "BARANGAY_ADMIN" && userRole !== "ADMIN")) {
         redirect("/auth/login");
     }
 

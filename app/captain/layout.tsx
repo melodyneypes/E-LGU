@@ -12,8 +12,8 @@ export default async function CaptainLayout({ children }: { children: React.Reac
         redirect("/auth/login");
     }
 
-    // Strict Guard: ONLY BARANGAY_CAPTAIN is permitted
-    if (session.user.role !== "BARANGAY_CAPTAIN") {
+    // Strict Guard: ONLY BARANGAY_CAPTAIN or BARANGAY_ADMIN is permitted
+    if (session.user.role !== "BARANGAY_CAPTAIN" && session.user.role !== "BARANGAY_ADMIN") {
         redirect("/auth/login");
     }
 

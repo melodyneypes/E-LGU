@@ -76,8 +76,8 @@ export default async function CaptainDashboardPage(props: {
         redirect("/auth/login");
     }
 
-    // Role check guard: Only BARANGAY_CAPTAIN role can access
-    if (user?.role !== "BARANGAY_CAPTAIN") {
+    // Role check guard: Only BARANGAY_CAPTAIN or BARANGAY_ADMIN role can access
+    if (user?.role !== "BARANGAY_CAPTAIN" && user?.role !== "BARANGAY_ADMIN") {
         redirect("/auth/login");
     }
 
